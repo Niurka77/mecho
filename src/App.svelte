@@ -354,23 +354,24 @@
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&family=VT323&display=swap');
 
-  :root {
-    --bg: #FDFBF5;
-    --bg-gradient: linear-gradient(135deg, #FDFBF5 0%, #FFF9F0 50%, #FDFBF5 100%);
-    --card: #FFFFFF;
-    --green: #8B9A7C;
-    --green-soft: #A8B8A0;
-    --blue: #A8C3D6;
-    --pink: #F4C2C2;
-    --sand: #E8D5B7;
-    --text: #4A4A4A;
-    --text-light: #8B9A7C;
-    --shadow: 0 8px 28px rgba(139, 154, 124, 0.12);
-    --shadow-hover: 0 14px 35px rgba(139, 154, 124, 0.2);
-    --radius-lg: 32px;
-    --radius-md: 24px;
-    --radius-sm: 18px;
-  }
+ :root {
+    /* Fondo oscuro profundo pero suave (No es negro puro) */
+    --bg: #1a1c1e; 
+    --bg-gradient: linear-gradient(135deg, #1a1c1e 0%, #2c2f33 50%, #1a1c1e 100%);
+    
+    /* Tarjetas y Contenedores */
+    --card: #25282c; /* Un gris azulado oscuro */
+    --sand: #32353b; /* Reemplazamos el color arena por un tono carbón */
+    
+    /* Colores de acento (los mantenemos pastel pero ajustados) */
+    --green: #b2c2a3; /* Un verde más pálido para que lea bien */
+    --text: #e1e1e1; /* Texto casi blanco */
+    --text-light: #a0a0a0;
+    
+    /* Sombras (importante: ahora deben ser oscuras) */
+    --shadow: 0 8px 28px rgba(0, 0, 0, 0.4);
+    --shadow-hover: 0 14px 35px rgba(0, 0, 0, 0.6);
+}
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
   
@@ -419,6 +420,8 @@
     
     /* MEJORA 2: Un borde blanco muy fino para definir la forma */
     border: 1px solid rgba(255, 255, 255, 0.5); 
+    /* Añadimos un resplandor exterior suave con el color de la burbuja */
+    filter: drop-shadow(0 0 8px var(--bubble-color));
     
     border-radius: 50%;
     box-shadow: 
