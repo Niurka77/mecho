@@ -172,7 +172,7 @@
 
   <main class="content">
     <header>
-      <h1 class="logo">mecho 🌿</h1>
+      <h1 class="logo">mecho </h1>
       <p class="subtitle">un rincón suave para nosotras</p>
     </header>
 
