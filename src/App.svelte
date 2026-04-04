@@ -20,12 +20,8 @@
   let showConfetti = false;
   let todayCount = 0;
   
-  // Burbujas
-  let bubbles = [];
-  let popSound;
-  
   // Sonido
-  let sendSound;
+  let popSound;
   
   // Colores pastel disponibles
   const pastelColors = [
@@ -40,40 +36,11 @@
   // Emojis rápidos
   const quickEmojis = ['🌸', '✨', '💕', '🫧', '⭐', '🌙', '🍰', '🐱', '💖', '🎀'];
 
-  // Configuración de burbujas realistas
-  const bubbleConfigs = [
-    { size: 80, left: '10%', duration: 8, delay: 0, shadow: '#ff9a9e' },
-    { size: 40, left: '20%', duration: 5, delay: 1, shadow: '#fad0c4' },
-    { size: 100, left: '35%', duration: 12, delay: 2, shadow: '#a18cd1' },
-    { size: 60, left: '50%', duration: 7, delay: 0.5, shadow: '#fbc2eb' },
-    { size: 120, left: '65%', duration: 15, delay: 3, shadow: '#8fd3f4' },
-    { size: 50, left: '80%', duration: 9, delay: 1.5, shadow: '#cfd9df' },
-    { size: 90, left: '15%', duration: 11, delay: 4, shadow: '#a6c1ee' },
-    { size: 30, left: '45%', duration: 6, delay: 2.5, shadow: '#ffecd2' },
-    { size: 70, left: '75%', duration: 10, delay: 5, shadow: '#d4fc79' },
-    { size: 110, left: '90%', duration: 14, delay: 1, shadow: '#96e6a1' },
-    { size: 55, left: '25%', duration: 13, delay: 3.5, shadow: '#ffdde1' },
-    { size: 45, left: '55%', duration: 6.5, delay: 4.2, shadow: '#ee9ca7' },
-    { size: 85, left: '70%', duration: 9.5, delay: 2.8, shadow: '#ffd89b' },
-    { size: 35, left: '8%', duration: 7.5, delay: 5.5, shadow: '#c9ffbf' }
-  ];
-
   // --- CARGAR POSTS + TIEMPO REAL ---
   onMount(async () => {
-    // Cargar sonidos
-    sendSound = new Audio('/soft-pop.mp3');
-    sendSound.volume = 0.15;
-    
+    // Cargar sonido
     popSound = new Audio('/soft-pop.mp3');
-    popSound.volume = 0.2;
-    
-    // Inicializar burbujas con IDs únicos
-    bubbles = bubbleConfigs.map((config, index) => ({
-      id: index,
-      ...config,
-      key: Date.now() + index,
-      exploding: false
-    }));
+    popSound.volume = 0.15;
     
     // Cargar posts
     const { data, error } = await supabase
@@ -96,19 +63,13 @@
         payload => {
           posts = [payload.new, ...posts];
           updateTodayCount();
-          if (sendSound) sendSound.play();
+          // Reproducir sonido suave
+          if (popSound) popSound.play();
         }
       )
       .subscribe();
 
     window.addEventListener('scroll', handleScroll);
-    
-    // Regenerar burbujas periódicamente
-    const interval = setInterval(() => {
-      regenerateBubbles();
-    }, 15000);
-    
-    return () => clearInterval(interval);
   });
 
   onDestroy(() => {
@@ -123,39 +84,6 @@
   function updateTodayCount() {
     const today = new Date().toDateString();
     todayCount = posts.filter(p => new Date(p.created_at).toDateString() === today).length;
-  }
-
-  // Regenerar burbujas que se fueron
-  function regenerateBubbles() {
-    bubbles = bubbles.map(bubble => ({
-      ...bubble,
-      key: Date.now() + bubble.id,
-      exploding: false
-    }));
-  }
-
-  // --- EXPLOTAR BURBUJA ---
-  function popBubble(bubbleId) {
-    const bubble = bubbles.find(b => b.id === bubbleId);
-    if (!bubble || bubble.exploding) return;
-    
-    // Reproducir sonido
-    if (popSound) {
-      popSound.currentTime = 0;
-      popSound.play();
-    }
-    
-    // Marcar como explotando
-    bubbles = bubbles.map(b => 
-      b.id === bubbleId ? { ...b, exploding: true, key: Date.now() } : b
-    );
-    
-    // Regenerar la burbuja después de 2 segundos
-    setTimeout(() => {
-      bubbles = bubbles.map(b =>
-        b.id === bubbleId ? { ...b, exploding: false, key: Date.now() } : b
-      );
-    }, 2000);
   }
 
   // --- PREVISUALIZACIÓN DE ARCHIVO ---
@@ -248,9 +176,11 @@
       console.error('Error en BD:', dbError);
       alert('Algo salió mal. Revisa tu conexión.');
     } else {
+      // ¡Éxito! Animaciones
       createConfetti();
-      if (sendSound) sendSound.play();
+      if (popSound) popSound.play();
       
+      // Limpiar formulario
       textInput = '';
       mediaFile = null;
       mediaPreview = null;
@@ -266,7 +196,7 @@
     textInput += emoji;
   }
 
-  // Manejar like
+  // Manejar like desde Post component
   async function handleLike(postId, isLiked) {
     const post = posts.find(p => p.id === postId);
     if (post) {
@@ -279,34 +209,40 @@
       posts = [...posts];
     }
   }
+
+  // --- BURBUJAS FLOTANTES (más burbujas) ---
+  const bubbles = [
+    { top: '15%', left: '5%', size: 55, delay: 0, duration: 20 },
+    { top: '70%', right: '3%', size: 45, delay: 2, duration: 24 },
+    { bottom: '15%', left: '8%', size: 38, delay: 4, duration: 18 },
+    { top: '30%', right: '12%', size: 32, delay: 1, duration: 22 },
+    { bottom: '45%', right: '18%', size: 48, delay: 3, duration: 26 },
+    { top: '85%', left: '15%', size: 28, delay: 5, duration: 19 },
+    { top: '8%', right: '20%', size: 42, delay: 2.5, duration: 23 },
+    { bottom: '60%', left: '20%', size: 35, delay: 1.5, duration: 21 },
+    { top: '50%', left: '2%', size: 30, delay: 3.5, duration: 25 },
+    { bottom: '10%', right: '25%', size: 40, delay: 4.5, duration: 20 }
+  ];
 </script>
 
 <div class="app-wrapper">
   
-  <!-- Burbujas realistas interactivas -->
-  {#each bubbles as bubble}
-    <div
-      key={bubble.key}
-      class="bubble {bubble.exploding ? 'exploding' : ''}"
+  <!-- Burbujas flotantes -->
+  {#each bubbles as bubble, i}
+    <div 
+      class="floating-bubble" 
       style="
-        width: {bubble.size}px;
-        height: {bubble.size}px;
-        left: {bubble.left};
-        animation: floatUp {bubble.duration}s infinite ease-in;
-        animation-delay: {bubble.delay}s;
-        box-shadow: inset 0 0 {bubble.size * 0.3}px {bubble.shadow};
+        --size: {bubble.size}px;
+        --top: {bubble.top};
+        --left: {bubble.left};
+        --right: {bubble.right};
+        --bottom: {bubble.bottom};
+        --delay: {bubble.delay}s;
+        --duration: {bubble.duration}s;
+        --parallax: {scrollY * 0.03 * (i + 1)}px;
       "
-      on:click={() => popBubble(bubble.id)}
-      on:touchstart|preventDefault={() => popBubble(bubble.id)}
     >
-      <div class="bubble-shine"></div>
-      {#if bubble.exploding}
-        <div class="pop-particles">
-          {#each Array(8) as _, i}
-            <span class="particle" style="--angle: {i * 45}deg; --delay: {i * 0.05}s">✨</span>
-          {/each}
-        </div>
-      {/if}
+      <span class="bubble-content">🫧</span>
     </div>
   {/each}
 
@@ -317,7 +253,7 @@
 
   <main class="content">
     <header>
-      <h1 class="logo">mecho ✨</h1>
+      <h1 class="logo">mecho </h1>
       <p class="subtitle">un rincón suave para nosotras</p>
       <div class="stats">
         <span class="stat-badge">🌸 {posts.length} recuerdos</span>
@@ -430,7 +366,7 @@
   <!-- Mascota flotante -->
   <div class="mascot-wrapper">
     <img src="/mecho.png" alt="Mecho" class="mascot" />
-    <div class="mascot-tooltip">¡toca las burbujas! 💖</div>
+    <div class="mascot-tooltip">¡hola! 💖</div>
   </div>
 </div>
 
@@ -439,7 +375,7 @@
 
   :root {
     --bg: #FDFBF5;
-    --bg-gradient: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%);
+    --bg-gradient: linear-gradient(135deg, #FDFBF5 0%, #FFF9F0 50%, #FDFBF5 100%);
     --card: #FFFFFF;
     --green: #8B9A7C;
     --green-soft: #A8B8A0;
@@ -471,106 +407,6 @@
     position: relative;
     min-height: 100vh;
     padding-bottom: 80px;
-    overflow-x: hidden;
-  }
-
-  /* ===== BURBUJAS REALISTAS ===== */
-  .bubble {
-    position: fixed;
-    bottom: -150px;
-    background: rgba(255, 255, 255, 0.15);
-    border-radius: 50%;
-    backdrop-filter: blur(1px);
-    pointer-events: auto;
-    cursor: pointer;
-    transition: all 0.1s ease;
-    z-index: 5;
-  }
-  
-  .bubble:hover {
-    transform: scale(1.05);
-  }
-  
-  .bubble-shine {
-    position: absolute;
-    top: 15%;
-    left: 15%;
-    width: 25%;
-    height: 20%;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.7);
-    transform: rotate(-30deg);
-    filter: blur(1px);
-  }
-  
-  /* Animación de ascenso */
-  @keyframes floatUp {
-    0% {
-      transform: translateY(0) translateX(0);
-      opacity: 0;
-    }
-    10% {
-      opacity: 0.7;
-    }
-    50% {
-      transform: translateY(-50vh) translateX(30px);
-    }
-    100% {
-      transform: translateY(-120vh) translateX(-20px);
-      opacity: 0;
-    }
-  }
-  
-  /* Animación de explosión */
-  .bubble.exploding {
-    animation: pop 0.3s ease-out forwards !important;
-    pointer-events: none;
-  }
-  
-  @keyframes pop {
-    0% {
-      transform: scale(1);
-      opacity: 0.8;
-    }
-    50% {
-      transform: scale(1.3);
-      opacity: 0.5;
-    }
-    100% {
-      transform: scale(0);
-      opacity: 0;
-    }
-  }
-  
-  /* Partículas al explotar */
-  .pop-particles {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 100%;
-    height: 100%;
-    transform: translate(-50%, -50%);
-    pointer-events: none;
-  }
-  
-  .particle {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    font-size: 14px;
-    animation: particleFly 0.5s ease-out forwards;
-    transform: rotate(var(--angle)) translateX(20px);
-  }
-  
-  @keyframes particleFly {
-    0% {
-      opacity: 1;
-      transform: rotate(var(--angle)) translateX(0) scale(1);
-    }
-    100% {
-      opacity: 0;
-      transform: rotate(var(--angle)) translateX(40px) scale(0);
-    }
   }
 
   /* ===== CONFETTI ===== */
@@ -594,6 +430,45 @@
     }
   }
 
+  /* ===== BURBUJAS ===== */
+  .floating-bubble {
+    position: fixed;
+    width: var(--size);
+    height: var(--size);
+    top: var(--top);
+    left: var(--left);
+    right: var(--right);
+    bottom: var(--bottom);
+    pointer-events: none;
+    z-index: 2;
+    transform: translateY(var(--parallax));
+    transition: transform 0.1s linear;
+    animation: floatBubble var(--duration) ease-in-out infinite alternate;
+    animation-delay: var(--delay);
+    opacity: 0.5;
+  }
+  
+  .bubble-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    font-size: calc(var(--size) * 0.5);
+    filter: drop-shadow(0 4px 8px rgba(168, 195, 214, 0.2));
+    transition: all 0.3s ease;
+  }
+  
+  .floating-bubble:hover .bubble-content {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+
+  @keyframes floatBubble {
+    0% { transform: translateY(0) rotate(-5deg); }
+    100% { transform: translateY(25px) rotate(5deg); }
+  }
+
   /* ===== CONTENIDO PRINCIPAL ===== */
   .content {
     max-width: 660px;
@@ -612,13 +487,13 @@
   .logo {
     font-family: 'VT323', monospace;
     font-size: 3rem;
-    color: white;
+    color: var(--green);
     letter-spacing: 4px;
-    text-shadow: 0 2px 10px rgba(0,0,0,0.15);
+    text-shadow: 0 2px 6px rgba(139, 154, 124, 0.15);
   }
   
   .subtitle {
-    color: rgba(255,255,255,0.9);
+    color: var(--text-light);
     font-size: 1rem;
     margin-top: 6px;
     font-weight: 500;
@@ -632,18 +507,18 @@
   }
   
   .stat-badge {
-    background: rgba(255,255,255,0.25);
-    backdrop-filter: blur(8px);
+    background: rgba(168, 195, 214, 0.2);
     padding: 5px 14px;
     border-radius: 40px;
     font-size: 0.8rem;
     font-weight: 600;
-    color: white;
+    color: var(--green);
+    backdrop-filter: blur(4px);
   }
 
   /* ===== COMPOSITOR ===== */
   .composer {
-    background: rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.85);
     backdrop-filter: blur(12px);
     border-radius: var(--radius-lg);
     padding: 22px;
@@ -694,6 +569,7 @@
     color: var(--text);
     cursor: pointer;
     transition: all 0.2s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
   }
   
   .remove-preview:hover { 
@@ -721,6 +597,7 @@
     background: white;
   }
   
+  /* Emojis rápidos */
   .quick-emojis {
     display: flex;
     gap: 8px;
@@ -743,6 +620,7 @@
     background: rgba(232, 213, 183, 0.7);
   }
 
+  /* Selector de colores */
   .color-selector {
     display: flex;
     align-items: center;
@@ -770,6 +648,7 @@
     box-shadow: 0 3px 10px rgba(0,0,0,0.1);
     cursor: pointer;
     transition: all 0.2s ease;
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -777,6 +656,7 @@
   
   .color-option:hover {
     transform: scale(1.15);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.15);
   }
   
   .color-option.active {
@@ -789,6 +669,7 @@
     color: var(--green);
     font-weight: bold;
     font-size: 1rem;
+    text-shadow: 0 1px 2px rgba(255,255,255,0.8);
   }
 
   .composer-actions {
@@ -810,14 +691,16 @@
     font-size: 0.9rem;
     cursor: pointer;
     transition: all 0.2s;
-    max-width: 200px;
+    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    max-width: 200px;
   }
   
   .btn-attach:hover { 
     background: #8FB5CC; 
     transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(168, 195, 214, 0.4);
   }
 
   .btn-send {
@@ -831,11 +714,13 @@
     font-size: 1rem;
     cursor: pointer;
     transition: all 0.2s;
+    box-shadow: 0 4px 12px rgba(139, 154, 124, 0.3);
   }
   
   .btn-send:hover:not(:disabled) { 
     transform: translateY(-2px) scale(1.02); 
     background: #7A8A6C;
+    box-shadow: 0 8px 20px rgba(139, 154, 124, 0.4);
   }
   
   .btn-send:active:not(:disabled) {
@@ -857,6 +742,7 @@
     50% { opacity: 1; }
   }
 
+  /* ===== FEED ===== */
   .feed {
     display: flex;
     flex-direction: column;
@@ -870,6 +756,13 @@
     backdrop-filter: blur(8px);
     border-radius: var(--radius-lg);
     border: 2px dashed var(--green-soft);
+  }
+  
+  .loader {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
   }
   
   .loader-emoji {
@@ -888,6 +781,7 @@
     50% { transform: translateY(-5px); }
   }
 
+  /* ===== MASCOTA ===== */
   .mascot-wrapper {
     position: fixed;
     bottom: 24px;
@@ -901,6 +795,7 @@
     height: auto;
     animation: floatMascot 3s ease-in-out infinite;
     filter: drop-shadow(0 6px 12px rgba(0,0,0,0.1));
+    transition: transform 0.2s;
   }
   
   .mascot:hover {
@@ -928,6 +823,7 @@
     transform: translateY(10px);
     transition: all 0.3s ease;
     pointer-events: none;
+    border: 1px solid var(--sand);
   }
   
   @keyframes floatMascot {
@@ -935,6 +831,7 @@
     50% { transform: translateY(-12px) rotate(3deg); }
   }
 
+  /* ===== RESPONSIVE ===== */
   @media (max-width: 560px) {
     .logo { font-size: 2.5rem; }
     .composer-actions { flex-direction: column; align-items: stretch; }
@@ -943,5 +840,6 @@
     .quick-emojis { justify-content: center; }
     .mascot { width: 55px; }
     .stats { flex-direction: column; align-items: center; gap: 8px; }
+    .composer { padding: 16px; }
   }
 </style>
