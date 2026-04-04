@@ -31,8 +31,13 @@
 </script>
 
 <article class="post-card" style="background-color: {post.color || '#FFFFFF'}">
-  <!-- Mensaje decorativo -->
-  <div class="post-deco">🫧</div>
+  <!-- Badge de mood -->
+  {#if post.mood_emoji}
+    <div class="mood-badge">
+      <span class="mood-emoji">{post.mood_emoji}</span>
+      <span class="mood-label">{post.mood}</span>
+    </div>
+  {/if}
   
   {#if post.text}
     <p class="post-text">{post.text}</p>
@@ -77,22 +82,9 @@
   .post-card::before {
     content: '';
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    top: 0; left: 0; right: 0; bottom: 0;
     background: radial-gradient(circle at 30% 20%, rgba(255,255,255,0.4) 0%, transparent 60%);
     pointer-events: none;
-  }
-  
-  .post-deco {
-    position: absolute;
-    bottom: 12px;
-    right: 16px;
-    font-size: 42px;
-    opacity: 0.12;
-    pointer-events: none;
-    transform: rotate(-10deg);
   }
   
   .post-card:hover { 
@@ -100,6 +92,25 @@
     box-shadow: 0 18px 40px rgba(139, 154, 124, 0.2); 
     border-color: rgba(232, 213, 183, 0.7);
   }
+  
+  /* === BADGE DE MOOD === */
+  .mood-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255,255,255,0.7);
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #5A5A5A;
+    align-self: flex-start;
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(200,220,255,0.4);
+  }
+  
+  .mood-emoji { font-size: 1.1rem; }
+  .mood-label { opacity: 0.9; }
   
   .post-text {
     font-size: 1.05rem;
@@ -172,9 +183,7 @@
     background: rgba(232, 213, 183, 0.5);
   }
   
-  .like-btn:active {
-    transform: scale(0.95);
-  }
+  .like-btn:active { transform: scale(0.95); }
   
   .like-btn.liked {
     background: rgba(244, 194, 194, 0.35);
@@ -193,7 +202,5 @@
     100% { transform: scale(1); }
   }
   
-  .like-btn.liked {
-    animation: gentlePop 0.3s ease;
-  }
+  .like-btn.liked { animation: gentlePop 0.3s ease; }
 </style>

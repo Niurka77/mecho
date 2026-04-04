@@ -10,6 +10,7 @@
   let mediaFile = null;
   let mediaPreview = null;
   let fileInputRef;
+  let textareaRef; // ← Nuevo: referencia al textarea
   let scrollY = 0;
   let channel;
   
@@ -29,8 +30,6 @@
     { emoji: '💜', label: 'Melancólico', color: '#F3E5FF', textColor: '#6B4A8B' },
     { emoji: '🔥', label: 'Motivado', color: '#FFE5F3', textColor: '#8B4A6B' }
   ];
-
-  const quickEmojis = ['✨', '💕', '🫧', '⭐', '🌙', '🍰', '🐱', '💖', '🎀'];
 
   onMount(async () => {
     popSound = new Audio('/soft-pop.mp3');
@@ -85,6 +84,15 @@
   function selectMood(mood) {
     selectedMood = mood;
     selectedColor = mood.color;
+  }
+
+  // ← NUEVO: Enfocar textarea para activar picker nativo de emojis
+  function openEmojiPicker() {
+    if (textareaRef) {
+      textareaRef.focus();
+      // En móviles, esto suele abrir el teclado con acceso a emojis
+      // En desktop, el usuario puede usar Win+. o Ctrl+Cmd+Espacio
+    }
   }
 
   function createConfetti() {
@@ -171,8 +179,6 @@
     isUploading = false;
   }
 
-  function addEmoji(emoji) { textInput += emoji; }
-
   async function handleLike(postId, isLiked) {
     const post = posts.find(p => p.id === postId);
     if (post) {
@@ -183,6 +189,7 @@
     }
   }
 
+  // Burbujas con colores más definidos para mejor visibilidad
   const bubbles = [
     { left: '10%', delay: '0s', duration: '8s', size: '80px', color: '#ffb3c1' },
     { left: '20%', delay: '1s', duration: '5s', size: '40px', color: '#ffd9b3' },
@@ -249,6 +256,7 @@
               class="mood-option {selectedMood === mood ? 'active' : ''}"
               style="background-color: {mood.color}; color: {mood.textColor}"
               on:click={() => selectMood(mood)}
+              type="button"
             >
               <span class="mood-emoji">{mood.emoji}</span>
               <span class="mood-text">{mood.label}</span>
@@ -259,15 +267,18 @@
 
       <textarea 
         bind:value={textInput} 
+        bind:this={textareaRef}
         placeholder="Cuéntame sobre tu día..."
         rows="3"
         class="composer-text"
       ></textarea>
       
-      <div class="quick-emojis">
-        {#each quickEmojis as emoji}
-          <button class="emoji-btn" on:click={() => addEmoji(emoji)}>{emoji}</button>
-        {/each}
+      <!-- BOTÓN PARA EMOJIS NATIVOS -->
+      <div class="emoji-helper">
+        <button type="button" class="btn-emoji-picker" on:click={openEmojiPicker} title="Insertar emoji">
+          🪄 Emojis
+          <span class="emoji-hint">Win+. o Ctrl+Cmd+Espacio</span>
+        </button>
       </div>
       
       <div class="composer-actions">
@@ -286,6 +297,7 @@
           class="btn-send {isUploading ? 'uploading' : ''}" 
           on:click={sendPost} 
           disabled={(!textInput.trim() && !mediaFile) || isUploading || !selectedMood}
+          type="button"
         >
           {#if isUploading}guardando...{:else}guardar ✨{/if}
         </button>
@@ -327,24 +339,17 @@
   @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&family=VT323&display=swap');
 
   :root {
-    /* FONDO CLARO CON BUEN CONTRASTE */
     --bg: #FAF7F2;
     --bg-gradient: linear-gradient(135deg, #FAF7F2 0%, #F5F0E8 100%);
-    
-    /* TEXTOS OSCUROS PARA BUEN CONTRASTE */
     --text: #3D3D3D;
     --text-light: #6B6B6B;
     --text-dark: #2D2D2D;
-    
-    /* COLORES DE UI */
     --card: #FFFFFF;
     --green: #7A8A6C;
     --green-soft: #9AAF92;
     --blue: #9DB5C7;
     --pink: #D4A5A5;
     --sand: #E8D5C4;
-    
-    /* SOMBRAS SUAVES */
     --shadow: 0 8px 28px rgba(61, 61, 61, 0.08);
     --shadow-hover: 0 14px 35px rgba(61, 61, 61, 0.12);
     --radius-lg: 32px;
@@ -371,42 +376,45 @@
     overflow: hidden;
   }
 
-  /* BURBUJAS - MÁS VISIBLES */
+  /* === BURBUJAS MEJORADAS - MÁS VISIBLES === */
   .bubble {
     position: fixed;
     bottom: -150px;
     left: var(--bubble-left);
     width: var(--bubble-size);
     height: var(--bubble-size);
-    background: rgba(255, 255, 255, 0.6);
-    border: 1px solid rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.85); /* ← Más opaco */
+    border: 2px solid rgba(200, 220, 255, 0.6); /* ← Borde más definido */
     border-radius: 50%;
     box-shadow: 
-      0 8px 20px rgba(61, 61, 61, 0.1),
-      inset 0 8px 20px 3px rgba(255, 255, 255, 0.95),
-      inset 0 -10px 20px rgba(200, 220, 255, 0.3),
-      inset 0 0 15px var(--bubble-color);
-    backdrop-filter: blur(1px);
+      0 8px 25px rgba(61, 61, 61, 0.12),
+      inset 0 10px 25px 5px rgba(255, 255, 255, 0.98),
+      inset 0 -12px 25px rgba(180, 200, 240, 0.4),
+      inset 0 0 25px var(--bubble-color); /* ← Brillo de color más intenso */
+    backdrop-filter: blur(2px);
     pointer-events: none;
     z-index: 1;
     transform: translateY(var(--parallax-y));
     animation: floatUp var(--bubble-duration) infinite ease-in;
     animation-delay: var(--bubble-delay);
-    opacity: 0.7;
+    opacity: 0.9; /* ← Opacidad aumentada */
   }
+  
   .bubble::after {
     content: "";
     position: absolute;
-    top: 15%; left: 15%;
-    width: 25%; height: 20%;
+    top: 12%; left: 12%;
+    width: 30%; height: 22%;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.95);
+    background: rgba(255, 255, 255, 0.98);
     transform: rotate(-30deg);
-    filter: blur(0.5px);
+    filter: blur(0.3px);
+    box-shadow: 0 2px 6px rgba(255,255,255,0.5);
   }
+  
   @keyframes floatUp {
     0% { transform: translateY(0) translateX(0); opacity: 0; }
-    10% { opacity: 0.75; }
+    10% { opacity: 0.9; }
     50% { transform: translateY(-50vh) translateX(30px); }
     100% { transform: translateY(-120vh) translateX(-15px); opacity: 0; }
   }
@@ -472,10 +480,7 @@
     border: 1px solid rgba(255, 255, 255, 0.6);
   }
 
-  /* SELECTOR DE MOOD */
-  .mood-selector {
-    margin-bottom: 16px;
-  }
+  .mood-selector { margin-bottom: 16px; }
   
   .mood-label {
     font-size: 0.9rem;
@@ -498,7 +503,7 @@
     border-radius: 40px;
     border: 2px solid transparent;
     cursor: pointer;
-    transition: all 0.25s ease;
+    transition: all 0.25s cubic-bezier(0.34, 1.2, 0.64, 1);
     display: flex;
     align-items: center;
     gap: 6px;
@@ -518,9 +523,7 @@
     box-shadow: 0 0 0 3px rgba(122, 138, 108, 0.25);
   }
   
-  .mood-emoji {
-    font-size: 1.2rem;
-  }
+  .mood-emoji { font-size: 1.2rem; }
 
   .composer {
     background: rgba(255, 255, 255, 0.95);
@@ -561,13 +564,11 @@
   
   .remove-preview {
     position: absolute;
-    top: 8px;
-    right: 8px;
+    top: 8px; right: 8px;
     background: rgba(255, 255, 255, 0.98);
     border: none;
     border-radius: 50%;
-    width: 32px;
-    height: 32px;
+    width: 32px; height: 32px;
     font-size: 1.2rem;
     color: var(--text);
     cursor: pointer;
@@ -601,27 +602,41 @@
     background: white;
   }
 
-  .quick-emojis {
+  /* === BOTÓN DE EMOJIS NATIVOS === */
+  .emoji-helper {
     display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
     justify-content: center;
-    margin: 12px 0;
+    margin: 8px 0 16px;
   }
   
-  .emoji-btn {
-    background: rgba(232, 213, 196, 0.5);
-    border: none;
-    font-size: 1.3rem;
-    padding: 6px 12px;
+  .btn-emoji-picker {
+    background: linear-gradient(135deg, rgba(232,213,196,0.6), rgba(244,228,210,0.8));
+    border: 1px solid rgba(212,165,165,0.4);
+    font-size: 0.9rem;
+    padding: 8px 20px;
     border-radius: 40px;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.25s ease;
+    color: var(--text);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    position: relative;
   }
   
-  .emoji-btn:hover {
-    transform: scale(1.15) translateY(-2px);
-    background: rgba(232, 213, 196, 0.8);
+  .btn-emoji-picker:hover {
+    transform: translateY(-2px);
+    background: linear-gradient(135deg, rgba(232,213,196,0.8), rgba(244,228,210,1));
+    box-shadow: 0 4px 12px rgba(212,165,165,0.25);
+  }
+  
+  .emoji-hint {
+    font-size: 0.75rem;
+    color: var(--text-light);
+    font-weight: 400;
+    opacity: 0.85;
+    margin-left: 4px;
   }
 
   .composer-actions {
@@ -745,7 +760,7 @@
   }
 
   @media (max-width: 768px) {
-    .bubble { --bubble-size: calc(var(--bubble-size) * 0.75) !important; opacity: 0.65; }
+    .bubble { --bubble-size: calc(var(--bubble-size) * 0.75) !important; }
     .mood-options { gap: 6px; }
     .mood-option { padding: 6px 12px; font-size: 0.85rem; }
   }
@@ -757,9 +772,10 @@
     .mascot { width: 55px; }
     .stats { flex-direction: column; align-items: center; gap: 8px; }
     .composer { padding: 18px; }
-    .bubble { --bubble-size: calc(var(--bubble-size) * 0.55) !important; opacity: 0.55; }
+    .bubble { --bubble-size: calc(var(--bubble-size) * 0.55) !important; }
     .mood-options { flex-direction: column; }
     .mood-option { justify-content: center; }
+    .emoji-hint { display: none; } /* Ocultar hint en móviles para ahorrar espacio */
   }
 
   @media (max-width: 380px) {
