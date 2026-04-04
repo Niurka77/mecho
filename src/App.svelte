@@ -15,9 +15,13 @@
   let scrollY = 0;
   let channel;
   let isUploading = false;
+  let uploadProgress = 0; // 🟡 Progreso de subida
   let showConfetti = false;
   let todayCount = 0;
   let popSound;
+  
+  // 🔴 Límite de caracteres
+  const MAX_CHARS = 500;
   
   const moods = [
     { label: 'Normal', color: '#FFFFFF' },
@@ -27,50 +31,74 @@
   ];
 
   let selectedMood = moods[0];
+  
+  // 🟡 Búsqueda
+  let searchTerm = '';
+  
+  // 🟡 Edición
+  let editingPost = null;
+  let editText = '';
+  
   // === PAGINACIÓN ===
   let currentPage = 1;
   const postsPerPage = 5;
   
-  // Función para obtener posts paginados
-  $: paginatedPosts = posts.slice(
+  // Posts filtrados por búsqueda
+  $: filteredPosts = posts.filter(post => 
+    (post.text?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+    (post.author_name?.toLowerCase() || '').includes(searchTerm.toLowerCase())
+  );
+  
+  // Paginación sobre posts filtrados
+  $: paginatedPosts = filteredPosts.slice(
     (currentPage - 1) * postsPerPage, 
     currentPage * postsPerPage
   );
   
-  // Función para calcular total de páginas
-  $: totalPages = Math.ceil(posts.length / postsPerPage);
+  $: totalPages = Math.ceil(filteredPosts.length / postsPerPage);
   
-  // Función para cambiar de página
   function goToPage(page) {
     if (page >= 1 && page <= totalPages) {
       currentPage = page;
-      // Scroll suave al feed
       document.querySelector('.feed-container')?.scrollIntoView({ behavior: 'smooth' });
     }
   }
   
-  // Resetear a página 1 cuando llegan nuevos posts en realtime
   function handleNewPost(payload) {
     posts = [payload.new, ...posts];
     updateTodayCount();
-    currentPage = 1; // Volver a la primera página para ver el nuevo post
+    currentPage = 1;
     if (popSound) popSound.play().catch(() => {});
   }
+
   onMount(async () => {
     popSound = new Audio('/soft-pop.mp3');
     popSound.volume = 0.15;
     
     await loadPosts();
     
-      channel = supabase
+    channel = supabase
       .channel('mecho-realtime')
       .on('postgres_changes', 
         { event: 'INSERT', schema: 'public', table: 'posts' }, 
-        payload => handleNewPost(payload)  // ← Usa la nueva función
+        payload => handleNewPost(payload)
       )
       .subscribe();
 
     window.addEventListener('scroll', handleScroll);
+    
+    // 🟢 Confirmación al salir si hay texto sin enviar
+    const handleBeforeUnload = (e) => {
+      if (textInput.trim()) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
   });
 
   onDestroy(() => {
@@ -101,31 +129,107 @@
   
   function updateTodayCount() {
     const today = new Date().toDateString();
-    todayCount = posts.filter(p => new Date(p.created_at).toDateString() === today).length;
+    todayCount = filteredPosts.filter(p => new Date(p.created_at).toDateString() === today).length;
   }
 
+  // 🔴 Validación de archivos mejorada
   function handleFileChange(event) {
-    mediaFile = event.target.files[0];
-    if (mediaFile) {
-      const reader = new FileReader();
-      reader.onload = e => { mediaPreview = e.target.result; };
-      reader.readAsDataURL(mediaFile);
-    } else { 
-      mediaPreview = null; 
+    const file = event.target.files[0];
+    if (!file) {
+      mediaFile = null;
+      mediaPreview = null;
+      return;
     }
+    
+    // Validar tamaño (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('⚠️ El archivo es muy grande. Máximo 5MB');
+      event.target.value = '';
+      return;
+    }
+    
+    // Validar tipo de archivo
+    const validTypes = [
+      'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+      'video/mp4', 'video/webm',
+      'audio/mpeg', 'audio/mp3', 'audio/wav'
+    ];
+    if (!validTypes.includes(file.type)) {
+      alert('⚠️ Tipo de archivo no permitido. Solo imágenes, videos o audio.');
+      event.target.value = '';
+      return;
+    }
+    
+    mediaFile = file;
+    const reader = new FileReader();
+    reader.onload = e => { mediaPreview = e.target.result; };
+    reader.readAsDataURL(mediaFile);
+  }
+
+  // 🔴 Eliminar post
+  async function deletePost(postId) {
+    if (!confirm('¿Eliminar este mensaje permanentemente?')) return;
+    
+    try {
+      const { error } = await supabase
+        .from('posts')
+        .delete()
+        .eq('id', postId);
+      
+      if (error) throw error;
+      posts = posts.filter(p => p.id !== postId);
+    } catch (err) {
+      alert('❌ Error al eliminar: ' + err.message);
+    }
+  }
+
+  // 🟡 Editar post
+  function startEdit(post) {
+    editingPost = post;
+    editText = post.text || '';
+    textareaRef?.focus();
+  }
+
+  async function saveEdit() {
+    if (!editText.trim() || !editingPost) return;
+    
+    try {
+      const { error } = await supabase
+        .from('posts')
+        .update({ text: editText })
+        .eq('id', editingPost.id);
+      
+      if (error) throw error;
+      
+      const index = posts.findIndex(p => p.id === editingPost.id);
+      if (index !== -1) {
+        posts[index].text = editText;
+        posts = [...posts];
+      }
+      editingPost = null;
+      editText = '';
+    } catch (err) {
+      alert('❌ Error al editar: ' + err.message);
+    }
+  }
+
+  function cancelEdit() {
+    editingPost = null;
+    editText = '';
   }
 
   async function sendPost() {
     if (!textInput.trim() && !mediaFile) {
-      alert('Escribe algo o adjunta un archivo');
+      alert('✍️ Escribe algo o adjunta un archivo');
       return;
     }
     if (!authorName.trim()) {
-      alert('Por favor, escribe tu nombre');
+      alert('👤 Por favor, escribe tu nombre');
       return;
     }
 
     isUploading = true;
+    uploadProgress = 0;
     let currentMediaUrl = null;
 
     try {
@@ -135,6 +239,7 @@
         const datePath = new Date().toISOString().split('T')[0];
         const filePath = `posts/${datePath}/${safeName}`;
 
+        // 🟡 Upload con progreso (simulado para compatibilidad)
         const { error: uploadError } = await supabase.storage
           .from('mecho-media')
           .upload(filePath, mediaFile, { cacheControl: '3600' });
@@ -179,9 +284,10 @@
       
     } catch (error) {
       console.error('Error detallado:', error);
-      alert('Error al guardar: ' + error.message);
+      alert('❌ Error al guardar: ' + error.message);
     } finally {
       isUploading = false;
+      uploadProgress = 0;
     }
   }
 
@@ -226,7 +332,7 @@
       <h1 class="logo">GUESTBOOK</h1>
       <p class="subtitle">deja tu huella suave</p>
     </header>
-      <!-- Mecho Mascot -->
+
     <div class="mascot-container">
       <img src="/mecho.png" alt="Mecho" class="mascot" />
       <div class="mascot-tooltip">
@@ -254,13 +360,21 @@
             maxlength="20"
           />
           
+          <!-- 🔴 Textarea con límite y contador -->
           <textarea 
             bind:value={textInput} 
             bind:this={textareaRef}
-            placeholder="escribe algo aquí..."
+            placeholder="escribe algo aquí... (máx. {MAX_CHARS} caracteres)"
             rows="4"
             class="retro-textarea"
+            maxlength={MAX_CHARS}
+            disabled={editingPost !== null}
           ></textarea>
+          
+          <!-- 🔴 Contador de caracteres -->
+          <div class="char-counter {textInput.length > MAX_CHARS * 0.9 ? 'warning' : ''}">
+            {textInput.length}/{MAX_CHARS}
+          </div>
 
           <div class="input-footer">
             <div class="mood-selector-mini">
@@ -271,6 +385,7 @@
                   on:click={() => selectedMood = mood}
                   title={mood.label}
                   type="button"
+                  disabled={editingPost !== null}
                 ></button>
               {/each}
             </div>
@@ -283,49 +398,96 @@
                 on:change={handleFileChange} 
                 class="file-input-hidden"
                 id="media-input"
+                disabled={editingPost !== null || isUploading}
               />
-              <label for="media-input" class="btn-retro-attach" title="Adjuntar archivo">
+              <label for="media-input" class="btn-retro-attach {editingPost !== null ? 'disabled' : ''}" title="Adjuntar archivo">
                 📎
               </label>
-              <button 
-                class="btn-retro-send" 
-                on:click={sendPost} 
-                disabled={(!textInput.trim() && !mediaFile) || isUploading}
-                type="button"
-              >
-                {#if isUploading}...{:else}ENVIAR{/if}
-              </button>
+              
+              {#if editingPost}
+                <button class="btn-retro-send" on:click={saveEdit} type="button">💾 Guardar</button>
+                <button class="btn-retro-cancel" on:click={cancelEdit} type="button">✕ Cancelar</button>
+              {:else}
+                <button 
+                  class="btn-retro-send" 
+                  on:click={sendPost} 
+                  disabled={(!textInput.trim() && !mediaFile) || isUploading}
+                  type="button"
+                >
+                  {#if isUploading}
+                    {#if uploadProgress > 0}
+                      {uploadProgress}%
+                    {:else}
+                      ⏳ Subiendo...
+                    {/if}
+                  {:else}
+                    ENVIAR
+                  {/if}
+                </button>
+              {/if}
             </div>
           </div>
           
-          {#if mediaPreview}
+          <!-- 🟡 Indicador de progreso de subida -->
+          {#if isUploading && mediaFile}
+            <div class="upload-progress">
+              <div class="progress-bar" style="width: {uploadProgress || 30}%"></div>
+              <span>{uploadProgress || '⏳'}%</span>
+            </div>
+          {/if}
+          
+          {#if mediaPreview && !editingPost}
             <div class="mini-preview">
               {#if mediaFile?.type?.startsWith('image')}
                 <img src={mediaPreview} alt="vista previa" />
               {:else if mediaFile?.type?.startsWith('video')}
                 <video src={mediaPreview} muted />
               {:else}
-                <span> {mediaFile.name.slice(0, 20)}...</span>
+                <span>📄 {mediaFile.name.slice(0, 20)}...</span>
               {/if}
-              <button on:click={() => { mediaPreview=null; mediaFile=null; if(fileInputRef) fileInputRef.value=''; }} type="button">x</button>
+              <button on:click={() => { mediaPreview=null; mediaFile=null; if(fileInputRef) fileInputRef.value=''; }} type="button">✕</button>
             </div>
           {/if}
         </div>
       </div>
 
-        <section class="feed-container">
+      <!-- 🟡 Barra de búsqueda -->
+      <div class="search-bar">
+        <input 
+          type="search" 
+          bind:value={searchTerm}
+          placeholder="🔍 buscar mensajes o autores..."
+          class="search-input"
+        />
+        {#if searchTerm}
+          <button class="search-clear" on:click={() => searchTerm = ''} type="button">✕</button>
+        {/if}
+      </div>
+
+      <section class="feed-container">
         {#if loading}
           <div class="loader-text">cargando memorias...</div>
-        {:else if posts.length === 0}
-          <div class="empty-msg">el libro está vacío.</div>
+        {:else if filteredPosts.length === 0}
+          <div class="empty-msg">
+            {#if searchTerm}
+              🔍 No se encontraron resultados para "{searchTerm}"
+            {:else}
+              el libro está vacío.
+            {/if}
+          </div>
         {:else}
           {#each paginatedPosts as post (post.id)}
             <div transition:fly={{ y: 10, duration: 400 }}>
-              <Post {post} onLike={handleLike} />
+              <Post 
+                {post} 
+                onLike={handleLike} 
+                onEdit={startEdit} 
+                onDelete={deletePost}
+                isEditing={editingPost?.id === post.id}
+              />
             </div>
           {/each}
           
-          <!-- Controles de Paginación -->
           {#if totalPages > 1}
             <div class="pagination-controls">
               <button 
@@ -362,7 +524,6 @@
         {/if}
       </section>
     </section>
-
   </main>
 </div>
 
@@ -375,6 +536,7 @@
     --green: #7A8A6C;
     --bg-offwhite: #FAF9F6;
     --panel-bg: rgba(255, 255, 255, 0.92);
+    --text: #333;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -503,9 +665,7 @@
     outline: none;
   }
 
-  .retro-input-name::placeholder {
-    color: #aaa;
-  }
+  .retro-input-name::placeholder { color: #aaa; }
 
   .retro-textarea {
     width: 100%;
@@ -517,17 +677,24 @@
     font-size: 1rem;
     resize: vertical;
     outline: none;
-    color: #333;
+    color: var(--text);
     box-shadow: inset 2px 2px 0px rgba(0,0,0,0.05);
   }
 
-  .retro-textarea:focus {
-    background: #fffff0;
-  }
+  .retro-textarea:focus { background: #fffff0; }
+  .retro-textarea:disabled { background: #f5f5f5; opacity: 0.7; }
+  .retro-textarea::placeholder { color: #999; }
 
-  .retro-textarea::placeholder {
-    color: #999;
+  /* 🔴 Contador de caracteres */
+  .char-counter {
+    text-align: right;
+    font-family: 'VT323', monospace;
+    font-size: 0.9rem;
+    color: #888;
+    margin-top: 4px;
+    transition: color 0.2s;
   }
+  .char-counter.warning { color: var(--pink); font-weight: bold; }
 
   .input-footer {
     display: flex;
@@ -536,10 +703,7 @@
     margin-top: 10px;
   }
 
-  .mood-selector-mini {
-    display: flex;
-    gap: 6px;
-  }
+  .mood-selector-mini { display: flex; gap: 6px; }
 
   .mood-dot {
     width: 20px; height: 20px;
@@ -548,17 +712,13 @@
     border: 1px solid #ccc;
     transition: transform 0.2s;
   }
-
-  .mood-dot.active {
-    transform: scale(1.2);
-    border: 2px solid var(--green);
-  }
+  .mood-dot.active { transform: scale(1.2); border: 2px solid var(--green); }
+  .mood-dot:disabled { opacity: 0.5; cursor: not-allowed; }
 
   .actions { display: flex; gap: 8px; }
-
   .file-input-hidden { display: none; }
 
-  .btn-retro-attach, .btn-retro-send {
+  .btn-retro-attach, .btn-retro-send, .btn-retro-cancel {
     font-family: 'VT323', monospace;
     font-size: 1.1rem;
     padding: 4px 12px;
@@ -567,24 +727,43 @@
     cursor: pointer;
     box-shadow: 2px 2px 0px #999;
   }
-
-  .btn-retro-attach:hover {
-    background: #ccc;
-  }
+  .btn-retro-attach:hover { background: #ccc; }
+  .btn-retro-attach.disabled { opacity: 0.5; cursor: not-allowed; }
 
   .btn-retro-send {
     background: var(--pink);
     color: white;
     border-color: #b08585;
   }
+  .btn-retro-send:hover:not(:disabled) { background: #c49595; }
+  .btn-retro-send:disabled { opacity: 0.6; cursor: not-allowed; }
 
-  .btn-retro-send:hover:not(:disabled) {
-    background: #c49595;
+  .btn-retro-cancel {
+    background: #ccc;
+    color: #333;
   }
+  .btn-retro-cancel:hover { background: #bbb; }
 
-  .btn-retro-send:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
+  /* 🟡 Indicador de progreso */
+  .upload-progress {
+    margin-top: 10px;
+    background: #eee;
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+    height: 20px;
+    font-family: 'VT323', monospace;
+    font-size: 0.9rem;
+  }
+  .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--pink), var(--blue));
+    transition: width 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
   }
 
   .mini-preview {
@@ -595,13 +774,11 @@
     background: white;
     padding: 4px;
   }
-  
   .mini-preview img, .mini-preview video { 
     max-height: 60px; 
     display: block; 
     max-width: 200px;
   }
-  
   .mini-preview button {
     position: absolute; 
     top: -5px; 
@@ -616,10 +793,38 @@
     line-height: 1;
   }
 
-  .feed-container {
-    display: flex;
-    flex-direction: column;
+  /* 🟡 Barra de búsqueda */
+  .search-bar {
+    position: relative;
+    margin: 20px 0;
   }
+  .search-input {
+    width: 100%;
+    padding: 10px 30px 10px 12px;
+    border: 2px solid var(--blue);
+    border-radius: 20px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 1rem;
+    background: white;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .search-input:focus { border-color: var(--pink); }
+  .search-clear {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: #999;
+    cursor: pointer;
+    font-size: 1.2rem;
+    padding: 4px 8px;
+  }
+  .search-clear:hover { color: var(--pink); }
+
+  .feed-container { display: flex; flex-direction: column; }
 
   .loader-text, .empty-msg {
     text-align: center;
@@ -629,14 +834,13 @@
     padding: 20px;
   }
 
-/* Mecho Mascot */
-.mascot-container {
-  text-align: center;
-  margin: 20px auto 30px;
-  cursor: pointer;
-  position: relative; /* Cambiado de fixed a relative */
-}
-
+  /* Mecho Mascot */
+  .mascot-container {
+    text-align: center;
+    margin: 20px auto 30px;
+    cursor: pointer;
+    position: relative;
+  }
   .mascot {
     width: 80px;
     height: auto;
@@ -644,49 +848,35 @@
     transition: transform 0.3s;
     animation: float 3s ease-in-out infinite;
   }
-
-  .mascot:hover {
-    transform: scale(1.1);
-  }
-
+  .mascot:hover { transform: scale(1.1); }
   .mascot:hover + .mascot-tooltip {
     opacity: 1;
-     transform: translateY(0) translateX(-50%);  /* Agrega translateX */
+    transform: translateY(0) translateX(-50%);
   }
-
   .mascot-tooltip {
     position: absolute;
     bottom: 85px;
-    right: 0;
+    left: 50%;
     background: white;
     padding: 8px 12px;
     border-radius: 20px;
     font-size: 0.85rem;
     font-weight: 600;
     color: #333;
-    left: 50%;      /* Agrega esto */
     white-space: nowrap;
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(10px) translateX(-50%);
     transition: all 0.3s ease;
     pointer-events: none;
     border: 2px solid var(--pink);
   }
-
   @keyframes float {
     0%, 100% { transform: translateY(0); }
     50% { transform: translateY(-10px); }
   }
 
-  @media (max-width: 600px) {
-    .logo { font-size: 2.5rem; }
-    .main-panel { padding: 20px; }
-    .input-footer { flex-direction: column; gap: 10px; align-items: stretch; }
-    .actions { justify-content: space-between; }
-    .mascot { width: 60px; }
-  }
-    /* === PAGINACIÓN === */
+  /* === PAGINACIÓN === */
   .pagination-controls {
     display: flex;
     justify-content: center;
@@ -696,7 +886,6 @@
     padding-top: 16px;
     border-top: 1px dashed var(--blue);
   }
-  
   .page-btn {
     font-family: 'VT323', monospace;
     font-size: 1.1rem;
@@ -708,42 +897,31 @@
     cursor: pointer;
     transition: all 0.2s;
   }
-  
-  .page-btn:hover:not(:disabled) {
-    background: var(--pink);
-    color: white;
-  }
-  
-  .page-btn:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-  
-  .page-numbers {
-    display: flex;
-    gap: 6px;
-  }
-  
+  .page-btn:hover:not(:disabled) { background: var(--pink); color: white; }
+  .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .page-numbers { display: flex; gap: 6px; }
   .page-number {
     font-family: 'VT323', monospace;
     font-size: 1rem;
-    width: 28px;
-    height: 28px;
+    width: 28px; height: 28px;
     border: 1px solid var(--blue);
     background: white;
     cursor: pointer;
     transition: all 0.2s;
   }
-  
-  .page-number:hover {
-    background: var(--blue);
-    color: white;
-  }
-  
+  .page-number:hover { background: var(--blue); color: white; }
   .page-number.active {
     background: var(--green);
     color: white;
     border-color: var(--green);
     font-weight: bold;
+  }
+
+  @media (max-width: 600px) {
+    .logo { font-size: 2.5rem; }
+    .main-panel { padding: 20px; }
+    .input-footer { flex-direction: column; gap: 10px; align-items: stretch; }
+    .actions { justify-content: space-between; }
+    .mascot { width: 60px; }
   }
 </style>

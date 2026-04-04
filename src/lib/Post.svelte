@@ -1,6 +1,9 @@
 <script>
   export let post;
   export let onLike = () => {};
+  export let onEdit = () => {};
+  export let onDelete = () => {};
+  export let isEditing = false;
   
   let liked = false;
   let localLikes = post.likes || 0;
@@ -22,7 +25,7 @@
   }
 </script>
 
-<article class="guestbook-entry" style="background-color: {post.mood_color || post.color || '#FFFFFF'}">
+<article class="guestbook-entry {isEditing ? 'editing' : ''}" style="background-color: {post.mood_color || post.color || '#FFFFFF'}">
   
   <div class="entry-header">
     <span class="meta-date">{formatTime(post.created_at)}</span>
@@ -53,10 +56,17 @@
 
   <div class="entry-footer">
     <button class="like-trigger {liked ? 'active' : ''}" on:click|preventDefault={handleLike} type="button">
-      [{localLikes}]
+      [{localLikes}] ❤
     </button>
+    
+    <!-- 🔴🟡 Botones de acción (solo visibles si no se está editando) -->
+    {#if !isEditing}
+      <div class="entry-actions">
+        <button class="action-btn edit" on:click={() => onEdit(post)} type="button" title="Editar">✏️</button>
+        <button class="action-btn delete" on:click={() => onDelete(post.id)} type="button" title="Eliminar">🗑️</button>
+      </div>
+    {/if}
   </div>
-
 </article>
 
 <style>
@@ -66,12 +76,13 @@
     background-color: #FFFCF8;
     padding: 15px 10px;
     position: relative;
-    transition: background-color 0.3s;
+    transition: background-color 0.3s, box-shadow 0.3s;
     border-top: 1px dashed var(--blue, #9DB5C7);
   }
-
-  .guestbook-entry:first-child {
-    border-top: none;
+  .guestbook-entry:first-child { border-top: none; }
+  .guestbook-entry.editing {
+    box-shadow: 0 0 0 2px var(--pink);
+    border-radius: 4px;
   }
 
   .entry-header {
@@ -116,14 +127,13 @@
     max-height: 300px;
     display: block;
   }
-
-  .entry-media audio {
-    min-width: 250px;
-  }
+  .entry-media audio { min-width: 250px; }
 
   .entry-footer {
     margin-top: 8px;
-    text-align: right;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
   }
 
   .like-trigger {
@@ -136,15 +146,28 @@
     padding: 2px 6px;
     transition: color 0.2s;
   }
-
   .like-trigger:hover, 
-  .like-trigger.active {
-    color: var(--pink, #D4A5A5);
-  }
-
+  .like-trigger.active { color: var(--pink, #D4A5A5); }
   .like-trigger:focus {
     outline: 2px solid var(--pink);
     outline-offset: 2px;
     border-radius: 4px;
   }
+
+  /* 🔴🟡 Botones de acción */
+  .entry-actions {
+    display: flex;
+    gap: 4px;
+  }
+  .action-btn {
+    background: none;
+    border: none;
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: background 0.2s;
+  }
+  .action-btn.edit:hover { background: rgba(122, 138, 108, 0.1); }
+  .action-btn.delete:hover { background: rgba(212, 165, 165, 0.1); }
 </style>
