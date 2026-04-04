@@ -38,11 +38,9 @@
 
   // --- CARGAR POSTS + TIEMPO REAL ---
   onMount(async () => {
-    // Cargar sonido
     popSound = new Audio('/soft-pop.mp3');
     popSound.volume = 0.15;
     
-    // Cargar posts
     const { data, error } = await supabase
       .from('posts')
       .select('*')
@@ -52,10 +50,8 @@
     else posts = data || [];
     loading = false;
 
-    // Contar posts de hoy
     updateTodayCount();
 
-    // Suscribirse a nuevos posts
     channel = supabase
       .channel('mecho-realtime')
       .on('postgres_changes', 
@@ -63,7 +59,6 @@
         payload => {
           posts = [payload.new, ...posts];
           updateTodayCount();
-          // Reproducir sonido suave
           if (popSound) popSound.play();
         }
       )
@@ -86,7 +81,6 @@
     todayCount = posts.filter(p => new Date(p.created_at).toDateString() === today).length;
   }
 
-  // --- PREVISUALIZACIÓN DE ARCHIVO ---
   function handleFileChange(event) {
     mediaFile = event.target.files[0];
     if (mediaFile) {
@@ -98,7 +92,6 @@
     }
   }
 
-  // --- CONFETTI ---
   function createConfetti() {
     showConfetti = true;
     const colors = ['#FFE5E5', '#E5F3FF', '#E5FFE5', '#FFF9E5', '#F4C2C2', '#FDE2F3'];
@@ -117,7 +110,6 @@
     setTimeout(() => { showConfetti = false; }, 3000);
   }
 
-  // --- ENVIAR POST ---
   async function sendPost() {
     if (!textInput.trim() && !mediaFile) {
       alert('✨ Escribe algo o adjunta un recuerdo');
@@ -127,7 +119,6 @@
     isUploading = true;
     let currentMediaUrl = null;
 
-    // Subir archivo si existe
     if (mediaFile) {
       const fileExt = mediaFile.name.split('.').pop();
       const safeName = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${fileExt}`;
@@ -151,7 +142,6 @@
       currentMediaUrl = publicUrl;
     }
 
-    // Determinar tipo
     let postType = 'note';
     if (mediaFile) {
       if (mediaFile.type.startsWith('image')) postType = 'image';
@@ -159,7 +149,6 @@
       else if (mediaFile.type.startsWith('audio')) postType = 'audio';
     }
 
-    // Crear post
     const newPostData = {
       text: textInput.trim() || null,
       media_url: currentMediaUrl,
@@ -176,11 +165,9 @@
       console.error('Error en BD:', dbError);
       alert('Algo salió mal. Revisa tu conexión.');
     } else {
-      // ¡Éxito! Animaciones
       createConfetti();
       if (popSound) popSound.play();
       
-      // Limpiar formulario
       textInput = '';
       mediaFile = null;
       mediaPreview = null;
@@ -191,12 +178,10 @@
     isUploading = false;
   }
 
-  // Agregar emoji al texto
   function addEmoji(emoji) {
     textInput += emoji;
   }
 
-  // Manejar like desde Post component
   async function handleLike(postId, isLiked) {
     const post = posts.find(p => p.id === postId);
     if (post) {
@@ -210,40 +195,36 @@
     }
   }
 
-  // --- BURBUJAS FLOTANTES (más burbujas) ---
+  // Burbujas con posición y animación personalizada
   const bubbles = [
-    { top: '15%', left: '5%', size: 55, delay: 0, duration: 20 },
-    { top: '70%', right: '3%', size: 45, delay: 2, duration: 24 },
-    { bottom: '15%', left: '8%', size: 38, delay: 4, duration: 18 },
-    { top: '30%', right: '12%', size: 32, delay: 1, duration: 22 },
-    { bottom: '45%', right: '18%', size: 48, delay: 3, duration: 26 },
-    { top: '85%', left: '15%', size: 28, delay: 5, duration: 19 },
-    { top: '8%', right: '20%', size: 42, delay: 2.5, duration: 23 },
-    { bottom: '60%', left: '20%', size: 35, delay: 1.5, duration: 21 },
-    { top: '50%', left: '2%', size: 30, delay: 3.5, duration: 25 },
-    { bottom: '10%', right: '25%', size: 40, delay: 4.5, duration: 20 }
+    { left: '10%', delay: '0s', duration: '8s', size: '80px', color: '#ff9a9e' },
+    { left: '20%', delay: '1s', duration: '5s', size: '40px', color: '#fad0c4' },
+    { left: '35%', delay: '2s', duration: '12s', size: '100px', color: '#a18cd1' },
+    { left: '50%', delay: '0.5s', duration: '7s', size: '60px', color: '#fbc2eb' },
+    { left: '65%', delay: '3s', duration: '15s', size: '120px', color: '#8fd3f4' },
+    { left: '80%', delay: '1.5s', duration: '9s', size: '50px', color: '#cfd9df' },
+    { left: '15%', delay: '4s', duration: '11s', size: '90px', color: '#a6c1ee' },
+    { left: '45%', delay: '2.5s', duration: '6s', size: '30px', color: '#ffecd2' },
+    { left: '75%', delay: '5s', duration: '10s', size: '70px', color: '#d4fc79' },
+    { left: '90%', delay: '1s', duration: '14s', size: '110px', color: '#96e6a1' }
   ];
 </script>
 
 <div class="app-wrapper">
   
-  <!-- Burbujas flotantes -->
+  <!-- Burbujas realistas CSS -->
   {#each bubbles as bubble, i}
     <div 
-      class="floating-bubble" 
+      class="bubble" 
       style="
-        --size: {bubble.size}px;
-        --top: {bubble.top};
-        --left: {bubble.left};
-        --right: {bubble.right};
-        --bottom: {bubble.bottom};
-        --delay: {bubble.delay}s;
-        --duration: {bubble.duration}s;
-        --parallax: {scrollY * 0.03 * (i + 1)}px;
+        --bubble-size: {bubble.size};
+        --bubble-left: {bubble.left};
+        --bubble-delay: {bubble.delay};
+        --bubble-duration: {bubble.duration};
+        --bubble-color: {bubble.color};
+        --parallax-y: {scrollY * 0.02 * (i + 1)}px;
       "
-    >
-      <span class="bubble-content">🫧</span>
-    </div>
+    ></div>
   {/each}
 
   <!-- Confetti -->
@@ -349,7 +330,7 @@
         </div>
       {:else if posts.length === 0}
         <div class="empty-state">
-          <span class="empty-emoji">🫧</span>
+          <span class="empty-bubble"></span>
           <p>Aún no hay recuerdos</p>
           <small>¡Sé la primera en compartir algo bonito! 💫</small>
         </div>
@@ -407,6 +388,7 @@
     position: relative;
     min-height: 100vh;
     padding-bottom: 80px;
+    overflow: hidden;
   }
 
   /* ===== CONFETTI ===== */
@@ -420,53 +402,51 @@
   }
 
   @keyframes confettiFall {
-    0% {
-      transform: translateY(0) rotate(0deg);
-      opacity: 1;
-    }
-    100% {
-      transform: translateY(100vh) rotate(720deg);
-      opacity: 0;
-    }
+    0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
   }
 
-  /* ===== BURBUJAS ===== */
-  .floating-bubble {
+  /* ===== BURBUJAS REALISTAS CSS ===== */
+  .bubble {
     position: fixed;
-    width: var(--size);
-    height: var(--size);
-    top: var(--top);
-    left: var(--left);
-    right: var(--right);
-    bottom: var(--bottom);
+    bottom: -150px;
+    left: var(--bubble-left);
+    width: var(--bubble-size);
+    height: var(--bubble-size);
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    box-shadow: 
+      0 20px 30px rgba(0, 0, 0, 0.1),
+      inset 0 10px 30px 5px rgba(255, 255, 255, 0.8),
+      inset 0 -15px 30px 0px rgba(255, 255, 255, 0.4),
+      inset 0 0 20px var(--bubble-color);
+    backdrop-filter: blur(1px);
     pointer-events: none;
-    z-index: 2;
-    transform: translateY(var(--parallax));
-    transition: transform 0.1s linear;
-    animation: floatBubble var(--duration) ease-in-out infinite alternate;
-    animation-delay: var(--delay);
-    opacity: 0.5;
-  }
-  
-  .bubble-content {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    height: 100%;
-    font-size: calc(var(--size) * 0.5);
-    filter: drop-shadow(0 4px 8px rgba(168, 195, 214, 0.2));
-    transition: all 0.3s ease;
-  }
-  
-  .floating-bubble:hover .bubble-content {
-    transform: scale(1.1);
-    opacity: 0.8;
+    z-index: 1;
+    transform: translateY(var(--parallax-y));
+    animation: floatUp var(--bubble-duration) infinite ease-in;
+    animation-delay: var(--bubble-delay);
+    will-change: transform;
   }
 
-  @keyframes floatBubble {
-    0% { transform: translateY(0) rotate(-5deg); }
-    100% { transform: translateY(25px) rotate(5deg); }
+  .bubble::after {
+    content: "";
+    position: absolute;
+    top: 15%;
+    left: 15%;
+    width: 25%;
+    height: 20%;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.6);
+    transform: rotate(-30deg);
+    filter: blur(1px);
+  }
+
+  @keyframes floatUp {
+    0% { transform: translateY(0) translateX(0); opacity: 0; }
+    10% { opacity: 0.6; }
+    50% { transform: translateY(-50vh) translateX(30px); }
+    100% { transform: translateY(-120vh) translateX(-15px); opacity: 0; }
   }
 
   /* ===== CONTENIDO PRINCIPAL ===== */
@@ -533,10 +513,7 @@
     transform: translateY(-2px);
   }
 
-  .preview-wrapper {
-    position: relative;
-    margin-bottom: 12px;
-  }
+  .preview-wrapper { position: relative; margin-bottom: 12px; }
   
   .preview-media {
     width: 100%;
@@ -596,8 +573,7 @@
     outline-offset: 3px;
     background: white;
   }
-  
-  /* Emojis rápidos */
+
   .quick-emojis {
     display: flex;
     gap: 8px;
@@ -620,7 +596,6 @@
     background: rgba(232, 213, 183, 0.7);
   }
 
-  /* Selector de colores */
   .color-selector {
     display: flex;
     align-items: center;
@@ -723,31 +698,17 @@
     box-shadow: 0 8px 20px rgba(139, 154, 124, 0.4);
   }
   
-  .btn-send:active:not(:disabled) {
-    transform: scale(0.98);
-  }
-  
-  .btn-send:disabled { 
-    opacity: 0.6; 
-    cursor: not-allowed; 
-  }
-  
+  .btn-send:active:not(:disabled) { transform: scale(0.98); }
+  .btn-send:disabled { opacity: 0.6; cursor: not-allowed; }
   .btn-send.uploading {
     background: var(--sand);
     animation: pulse 1.5s ease-in-out infinite;
   }
   
-  @keyframes pulse {
-    0%, 100% { opacity: 0.7; }
-    50% { opacity: 1; }
-  }
+  @keyframes pulse { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
 
   /* ===== FEED ===== */
-  .feed {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-  }
+  .feed { display: flex; flex-direction: column; gap: 20px; }
   
   .loader, .empty-state {
     text-align: center;
@@ -758,28 +719,30 @@
     border: 2px dashed var(--green-soft);
   }
   
-  .loader {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
+  .loader { display: flex; align-items: center; justify-content: center; gap: 10px; }
+  .loader-emoji { display: inline-block; animation: bounce 1s ease-in-out infinite; }
+  
+  .empty-bubble {
+    width: 50px;
+    height: 50px;
+    margin: 0 auto 12px;
+    background: rgba(255,255,255,0.3);
+    border-radius: 50%;
+    box-shadow: inset 0 10px 20px rgba(255,255,255,0.6), inset 0 0 15px #a18cd1;
+    position: relative;
+  }
+  .empty-bubble::after {
+    content: "";
+    position: absolute;
+    top: 15%; left: 15%;
+    width: 25%; height: 20%;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.6);
+    transform: rotate(-30deg);
+    filter: blur(1px);
   }
   
-  .loader-emoji {
-    display: inline-block;
-    animation: bounce 1s ease-in-out infinite;
-  }
-  
-  .empty-emoji {
-    font-size: 3rem;
-    display: block;
-    margin-bottom: 12px;
-  }
-  
-  @keyframes bounce {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-5px); }
-  }
+  @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
 
   /* ===== MASCOTA ===== */
   .mascot-wrapper {
@@ -798,14 +761,8 @@
     transition: transform 0.2s;
   }
   
-  .mascot:hover {
-    transform: scale(1.05);
-  }
-  
-  .mascot:hover + .mascot-tooltip {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  .mascot:hover { transform: scale(1.05); }
+  .mascot:hover + .mascot-tooltip { opacity: 1; transform: translateY(0); }
   
   .mascot-tooltip {
     position: absolute;
@@ -832,6 +789,16 @@
   }
 
   /* ===== RESPONSIVE ===== */
+  @media (max-width: 768px) {
+    .bubble { --bubble-size: calc(var(--bubble-size) * 0.7) !important; }
+    @keyframes floatUp {
+      0% { transform: translateY(0) translateX(0); opacity: 0; }
+      10% { opacity: 0.5; }
+      50% { transform: translateY(-40vh) translateX(20px); }
+      100% { transform: translateY(-110vh) translateX(-10px); opacity: 0; }
+    }
+  }
+
   @media (max-width: 560px) {
     .logo { font-size: 2.5rem; }
     .composer-actions { flex-direction: column; align-items: stretch; }
@@ -841,5 +808,10 @@
     .mascot { width: 55px; }
     .stats { flex-direction: column; align-items: center; gap: 8px; }
     .composer { padding: 16px; }
+    .bubble { --bubble-size: calc(var(--bubble-size) * 0.5) !important; opacity: 0.4; }
+  }
+
+  @media (max-width: 380px) {
+    .bubble { display: none; } /* Ocultar burbujas en pantallas muy pequeñas para rendimiento */
   }
 </style>
