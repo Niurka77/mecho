@@ -225,7 +225,7 @@
         </div>
       {/if}
 
-      <textarea bind:value={textInput} placeholder="Escribe un mensajito bonito... ✏️" rows="3" class="composer-text"></textarea>
+      <textarea bind:value={textInput} placeholder="Escribe un mensajito bonito... " rows="3" class="composer-text"></textarea>
       
       <div class="quick-emojis">
         {#each quickEmojis as emoji}
@@ -292,8 +292,8 @@
     --blue: #A8C3D6;
     --pink: #F4C2C2;
     --sand: #E8D5B7;
-    --text: #3A3A3A; /* Texto más oscuro para mejor contraste */
-    --text-light: #6B7A6C;
+    --text: #181818; /* Texto más oscuro para mejor contraste */
+    --text-light: #202721;
     --shadow: 0 8px 28px rgba(139, 154, 124, 0.12);
     --shadow-hover: 0 14px 35px rgba(139, 154, 124, 0.2);
     --radius-lg: 32px;
