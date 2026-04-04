@@ -10,28 +10,38 @@
   let mediaFile = null;
   let mediaPreview = null;
   let fileInputRef;
-  let textareaRef; // ← Nuevo: referencia al textarea
+  let textareaRef;
   let scrollY = 0;
   let channel;
   
-  let selectedColor = '#FFE5E5';
+  let selectedColor = '#1a1c1e';
   let selectedMood = null;
   let isUploading = false;
   let showConfetti = false;
   let todayCount = 0;
   let popSound;
   
-  // MOODS DISPONIBLES
+  // Toggle dark mode (por defecto: activado)
+  let darkMode = true;
+  
+  // MOODS DISPONIBLES - Colores adaptados al tema dark
   const moods = [
-    { emoji: '🌸', label: 'Feliz', color: '#FFE5E5', textColor: '#8B4A4A' },
-    { emoji: '🌧️', label: 'Tranquilo', color: '#E5F3FF', textColor: '#4A6B8B' },
-    { emoji: '⚡', label: 'Energético', color: '#FFF9E5', textColor: '#8B7D4A' },
-    { emoji: '🍃', label: 'En paz', color: '#E5FFE5', textColor: '#4A8B4A' },
-    { emoji: '💜', label: 'Melancólico', color: '#F3E5FF', textColor: '#6B4A8B' },
-    { emoji: '🔥', label: 'Motivado', color: '#FFE5F3', textColor: '#8B4A6B' }
+    { emoji: '✿', label: 'Feliz', color: '#2a2c2e', textColor: '#F4C2C2', border: '#F4C2C2' },
+    { emoji: '☁', label: 'Tranquilo', color: '#2a2c2e', textColor: '#A8C3D6', border: '#A8C3D6' },
+    { emoji: '⚡', label: 'Energético', color: '#2a2c2e', textColor: '#E8D5A0', border: '#E8D5A0' },
+    { emoji: '❀', label: 'En paz', color: '#2a2c2e', textColor: '#A8B8A0', border: '#A8B8A0' },
+    { emoji: '✦', label: 'Melancólico', color: '#2a2c2e', textColor: '#C8A8D6', border: '#C8A8D6' },
+    { emoji: '★', label: 'Motivado', color: '#2a2c2e', textColor: '#D6A8B8', border: '#D6A8B8' }
   ];
 
   onMount(async () => {
+    // Cargar preferencia de modo oscuro desde localStorage
+    const savedMode = localStorage.getItem('mecho-darkmode');
+    if (savedMode !== null) {
+      darkMode = savedMode === 'true';
+    }
+    applyTheme();
+    
     popSound = new Audio('/soft-pop.mp3');
     popSound.volume = 0.15;
     
@@ -65,6 +75,17 @@
     window.removeEventListener('scroll', handleScroll);
   });
 
+  // Aplicar tema al body
+  function applyTheme() {
+    document.body.classList.toggle('light-mode', !darkMode);
+    localStorage.setItem('mecho-darkmode', String(darkMode));
+  }
+  
+  function toggleDarkMode() {
+    darkMode = !darkMode;
+    applyTheme();
+  }
+
   function handleScroll() { scrollY = window.scrollY; }
   
   function updateTodayCount() {
@@ -86,25 +107,22 @@
     selectedColor = mood.color;
   }
 
-  // ← NUEVO: Enfocar textarea para activar picker nativo de emojis
   function openEmojiPicker() {
     if (textareaRef) {
       textareaRef.focus();
-      // En móviles, esto suele abrir el teclado con acceso a emojis
-      // En desktop, el usuario puede usar Win+. o Ctrl+Cmd+Espacio
     }
   }
 
   function createConfetti() {
     showConfetti = true;
-    const colors = moods.map(m => m.color);
-    for (let i = 0; i < 60; i++) {
+    const colors = ['#F4C2C2', '#A8C3D6', '#A8B8A0', '#E8D5A0', '#C8A8D6'];
+    for (let i = 0; i < 40; i++) {
       const confetti = document.createElement('div');
-      confetti.className = 'confetti';
+      confetti.className = 'confetti-pixel';
       confetti.style.left = Math.random() * 100 + '%';
       confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
-      confetti.style.width = Math.random() * 8 + 4 + 'px';
-      confetti.style.height = Math.random() * 8 + 4 + 'px';
+      confetti.style.width = Math.random() * 6 + 4 + 'px';
+      confetti.style.height = Math.random() * 6 + 4 + 'px';
       confetti.style.animationDuration = Math.random() * 2 + 1 + 's';
       document.body.appendChild(confetti);
       setTimeout(() => confetti.remove(), 3000);
@@ -114,11 +132,11 @@
 
   async function sendPost() {
     if (!textInput.trim() && !mediaFile) {
-      alert('✨ Escribe algo bonito');
+      alert('✿ escribe algo');
       return;
     }
     if (!selectedMood) {
-      alert('🌸 Selecciona cómo te sientes');
+      alert('✿ selecciona un mood');
       return;
     }
 
@@ -137,7 +155,7 @@
 
       if (uploadError) {
         console.error('Error:', uploadError);
-        alert('No se pudo subir');
+        alert('no se pudo subir');
         isUploading = false;
         return;
       }
@@ -158,6 +176,7 @@
       color: selectedColor,
       mood: selectedMood.label,
       mood_emoji: selectedMood.emoji,
+      mood_border: selectedMood.border,
       type: postType,
       likes: 0
     };
@@ -165,7 +184,7 @@
     const { error: dbError } = await supabase.from('posts').insert([newPostData]);
     if (dbError) {
       console.error('Error BD:', dbError);
-      alert('Algo salió mal');
+      alert('algo salió mal');
     } else {
       createConfetti();
       if (popSound) popSound.play();
@@ -173,7 +192,7 @@
       mediaFile = null; 
       mediaPreview = null;
       selectedMood = null;
-      selectedColor = '#FFE5E5';
+      selectedColor = '#1a1c1e';
       if (fileInputRef) fileInputRef.value = '';
     }
     isUploading = false;
@@ -189,72 +208,93 @@
     }
   }
 
-  // Burbujas con colores más definidos para mejor visibilidad
+  // Burbujas pixeladas estilo retro
   const bubbles = [
-    { left: '10%', delay: '0s', duration: '8s', size: '80px', color: '#ffb3c1' },
-    { left: '20%', delay: '1s', duration: '5s', size: '40px', color: '#ffd9b3' },
-    { left: '35%', delay: '2s', duration: '12s', size: '100px', color: '#d4c1ec' },
-    { left: '50%', delay: '0.5s', duration: '7s', size: '60px', color: '#f9c1d9' },
-    { left: '65%', delay: '3s', duration: '15s', size: '120px', color: '#b3e0f2' },
-    { left: '80%', delay: '1.5s', duration: '9s', size: '50px', color: '#d9d9e6' },
-    { left: '15%', delay: '4s', duration: '11s', size: '90px', color: '#c1d4f2' },
-    { left: '45%', delay: '2.5s', duration: '6s', size: '30px', color: '#ffe6cc' },
-    { left: '75%', delay: '5s', duration: '10s', size: '70px', color: '#e6f9b3' },
-    { left: '90%', delay: '1s', duration: '14s', size: '110px', color: '#c1f2d4' }
+    { left: '10%', delay: '0s', duration: '8s', size: '12px', color: '#A8B8A0' },
+    { left: '20%', delay: '1s', duration: '5s', size: '8px', color: '#F4C2C2' },
+    { left: '35%', delay: '2s', duration: '12s', size: '16px', color: '#A8C3D6' },
+    { left: '50%', delay: '0.5s', duration: '7s', size: '10px', color: '#E8D5A0' },
+    { left: '65%', delay: '3s', duration: '15s', size: '14px', color: '#C8A8D6' },
+    { left: '80%', delay: '1.5s', duration: '9s', size: '9px', color: '#D6A8B8' },
+    { left: '15%', delay: '4s', duration: '11s', size: '11px', color: '#A8B8A0' },
+    { left: '45%', delay: '2.5s', duration: '6s', size: '7px', color: '#F4C2C2' },
+    { left: '75%', delay: '5s', duration: '10s', size: '13px', color: '#A8C3D6' },
+    { left: '90%', delay: '1s', duration: '14s', size: '15px', color: '#E8D5A0' }
   ];
 </script>
 
 <div class="app-wrapper">
-  {#each bubbles as bubble, i}
-    <div class="bubble" 
+  <!-- Burbujas pixeladas de fondo -->
+  {#each bubbles as bubble}
+    <div class="pixel-bubble" 
       style="
         --bubble-size: {bubble.size};
         --bubble-left: {bubble.left};
         --bubble-delay: {bubble.delay};
         --bubble-duration: {bubble.duration};
         --bubble-color: {bubble.color};
-        --parallax-y: {scrollY * 0.02 * (i + 1)}px;
+        --parallax-y: {scrollY * 0.01}px;
       "
     ></div>
   {/each}
 
   {#if showConfetti}<div class="confetti-container"></div>{/if}
 
-  <main class="content">
-    <header>
-      <h1 class="logo">mecho</h1>
-      <p class="subtitle">tu diario de ánimo suave 🌸</p>
-      <div class="stats">
-        <span class="stat-badge">📝 {posts.length} días registrados</span>
-        <span class="stat-badge">💫 {todayCount} hoy</span>
+  <!-- PANEL PRINCIPAL CON BORDE DOBLE -->
+  <main class="content-panel">
+    
+    <!-- ENCABEZADO CON ESTILO RETRO -->
+    <header class="panel-header">
+      <div class="header-tab">
+        <h1 class="logo">[ mecho ]</h1>
+      </div>
+      <p class="subtitle">tu diario de ánimo • pixel edition ✿</p>
+      
+      <!-- CONTROLES: Dark Mode Toggle -->
+      <div class="header-controls">
+        <button class="btn-theme-toggle" on:click={toggleDarkMode} title="Cambiar tema">
+          {#if darkMode}☾{:else}☀{/if}
+          <span class="theme-label">{darkMode ? 'dark' : 'light'}</span>
+        </button>
+      </div>
+      
+      <div class="stats-bar">
+        <span class="stat-item">✿ {posts.length} entries</span>
+        <span class="stat-separator">│</span>
+        <span class="stat-item">★ {todayCount} today</span>
       </div>
     </header>
 
-    <section class="composer">
+    <!-- SECCIÓN COMPOSITOR -->
+    <section class="composer-panel">
+      
+      <!-- Preview de media -->
       {#if mediaPreview}
-        <div class="preview-wrapper">
+        <div class="preview-box">
           {#if mediaFile?.type?.startsWith('image')}
             <img src={mediaPreview} alt="Preview" class="preview-media" />
           {:else if mediaFile?.type?.startsWith('video')}
             <video src={mediaPreview} class="preview-media" muted />
           {:else if mediaFile?.type?.startsWith('audio')}
-            <div class="preview-audio">🎵 {mediaFile.name.slice(0, 20)}...</div>
+            <div class="preview-audio">♪ {mediaFile.name.slice(0, 18)}...</div>
           {/if}
-          <button class="remove-preview" on:click={() => { 
+          <button class="btn-remove" on:click={() => { 
             mediaPreview = null; mediaFile = null; 
             if (fileInputRef) fileInputRef.value = ''; 
           }}>✕</button>
         </div>
       {/if}
 
-      <!-- SELECTOR DE MOOD -->
+      <!-- Selector de Mood con estilo retro -->
       <div class="mood-selector">
-        <p class="mood-label">¿Cómo te sientes hoy?</p>
+        <div class="section-tab">
+          <span class="tab-label">mood</span>
+        </div>
         <div class="mood-options">
           {#each moods as mood}
             <button 
               class="mood-option {selectedMood === mood ? 'active' : ''}"
-              style="background-color: {mood.color}; color: {mood.textColor}"
+              style="border-color: {mood.border}; color: {mood.textColor}"
               on:click={() => selectMood(mood)}
               type="button"
             >
@@ -265,22 +305,24 @@
         </div>
       </div>
 
+      <!-- Textarea con borde definido -->
       <textarea 
         bind:value={textInput} 
         bind:this={textareaRef}
-        placeholder="Cuéntame sobre tu día..."
+        placeholder="write your thoughts..."
         rows="3"
         class="composer-text"
       ></textarea>
       
-      <!-- BOTÓN PARA EMOJIS NATIVOS -->
+      <!-- Botón emoji nativo -->
       <div class="emoji-helper">
-        <button type="button" class="btn-emoji-picker" on:click={openEmojiPicker} title="Insertar emoji">
-          🪄 Emojis
-          <span class="emoji-hint">Win+. o Ctrl+Cmd+Espacio</span>
+        <button type="button" class="btn-emoji" on:click={openEmojiPicker}>
+          ✿ emoji
+          <span class="emoji-hint">[win+.]</span>
         </button>
       </div>
       
+      <!-- Acciones del compositor -->
       <div class="composer-actions">
         <input 
           type="file" 
@@ -291,7 +333,7 @@
           id="media-input"
         />
         <label for="media-input" class="btn-attach">
-          📎 {mediaFile ? mediaFile.name.slice(0, 18) : 'adjuntar'}
+          [ attach ]
         </label>
         <button 
           class="btn-send {isUploading ? 'uploading' : ''}" 
@@ -299,486 +341,602 @@
           disabled={(!textInput.trim() && !mediaFile) || isUploading || !selectedMood}
           type="button"
         >
-          {#if isUploading}guardando...{:else}guardar ✨{/if}
+          {#if isUploading}saving...{:else}save entry ✿{/if}
         </button>
       </div>
     </section>
 
-    <section class="feed">
+    <!-- FEED DE POSTS CON PANEL DEFINIDO -->
+    <section class="feed-panel">
+      <div class="section-tab">
+        <span class="tab-label">entries</span>
+      </div>
+      
       {#if loading}
-        <div class="loader">🌸 mecho está despertando...</div>
+        <div class="loader-box">
+          <span class="loader-text">✿ loading mecho...</span>
+        </div>
       {:else if posts.length === 0}
-        <div class="empty-state">
-          <span class="empty-emoji">🫧</span>
-          <p>Aún no hay registros</p>
-          <small>¡Empieza hoy! 💫</small>
+        <div class="empty-box">
+          <span class="empty-icon">✦</span>
+          <p>no entries yet</p>
+          <small>start your first entry ✿</small>
         </div>
       {:else}
         {#each posts as post (post.id)}
-          <div transition:fly={{ y: 20, duration: 500 }}>
-            <Post {post} onLike={handleLike} />
+          <div transition:fly={{ y: 15, duration: 300 }}>
+            <Post {post} onLike={handleLike} {darkMode} />
           </div>
         {/each}
       {/if}
     </section>
+    
   </main>
 
-  <div class="mascot-wrapper">
-    <img src="/mecho.png" alt="Mecho" class="mascot" />
-    <div class="mascot-tooltip">
+  <!-- MASCOTA MECHO - Pixel style -->
+  <div class="mascot-container">
+    <img src="/mecho.png" alt="Mecho" class="mascot-pixel" />
+    <div class="mascot-bubble">
       {#if todayCount > 0}
-        ¡{todayCount} registro{todayCount > 1 ? 's' : ''} hoy! 💖
+        {todayCount} entry{todayCount > 1 ? 's' : ''} today ✿
       {:else}
-        ¡Cuéntame tu día! 🌸
+        tell me about your day ✦
       {/if}
     </div>
   </div>
 </div>
 
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&family=VT323&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=VT323&family=Press+Start+2P&display=swap');
 
+  /* === VARIABLES DE TEMA OSCURO (DEFAULT) === */
   :root {
-    --bg: #FAF7F2;
-    --bg-gradient: linear-gradient(135deg, #FAF7F2 0%, #F5F0E8 100%);
-    --text: #3D3D3D;
-    --text-light: #6B6B6B;
-    --text-dark: #2D2D2D;
-    --card: #FFFFFF;
-    --green: #7A8A6C;
-    --green-soft: #9AAF92;
-    --blue: #9DB5C7;
-    --pink: #D4A5A5;
-    --sand: #E8D5C4;
-    --shadow: 0 8px 28px rgba(61, 61, 61, 0.08);
-    --shadow-hover: 0 14px 35px rgba(61, 61, 61, 0.12);
-    --radius-lg: 32px;
-    --radius-md: 24px;
-    --radius-sm: 18px;
+    /* Fondos */
+    --bg-main: #121212;
+    --bg-panel: #1a1c1e;
+    --bg-card: #1e2022;
+    --bg-input: #242628;
+    --bg-header: #2a2c2e;
+    
+    /* Texto */
+    --text-main: #e8e6e3;
+    --text-muted: #a8a6a3;
+    --text-dark: #121212;
+    
+    /* Bordes pastel apagados */
+    --border-mint: #A8B8A0;
+    --border-rose: #F4C2C2;
+    --border-ash: #A8C3D6;
+    --border-lavender: #C8A8D6;
+    --border-gold: #E8D5A0;
+    --border-default: #3a3c3e;
+    
+    /* Acentos */
+    --accent-pink: #F4C2C2;
+    --accent-mint: #A8B8A0;
+    --accent-blue: #A8C3D6;
+    
+    /* UI */
+    --border-width: 2px;
+    --border-dotted: 2px dotted;
+    --border-dashed: 2px dashed;
+    --radius: 4px;
+    --radius-lg: 8px;
   }
 
+  /* === VARIABLES DE TEMA CLARO === */
+  body.light-mode {
+    --bg-main: #f5f3f0;
+    --bg-panel: #fffdf9;
+    --bg-card: #faf8f5;
+    --bg-input: #f0eee9;
+    --bg-header: #e8e6e3;
+    
+    --text-main: #2a2c2e;
+    --text-muted: #5a5c5e;
+    --text-dark: #121212;
+    
+    --border-default: #c8c6c3;
+  }
+
+  /* === RESET Y BASE === */
   * { box-sizing: border-box; margin: 0; padding: 0; }
   
   body {
-    background: var(--bg);
-    background-image: var(--bg-gradient);
-    color: var(--text);
-    font-family: 'Nunito', sans-serif;
-    scroll-behavior: smooth;
+    background-color: var(--bg-main);
+    background-image: 
+      linear-gradient(rgba(168, 184, 160, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(168, 184, 160, 0.03) 1px, transparent 1px);
+    background-size: 20px 20px;
+    color: var(--text-main);
+    font-family: 'VT323', monospace;
+    font-size: 1.1rem;
+    line-height: 1.5;
     min-height: 100vh;
     overflow-x: hidden;
+    image-rendering: pixelated;
   }
 
   .app-wrapper {
     position: relative;
     min-height: 100vh;
-    padding-bottom: 80px;
-    overflow: hidden;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
   }
 
-  /* === BURBUJAS MEJORADAS - MÁS VISIBLES === */
-  .bubble {
+  /* === BURBUJAS PIXELADAS === */
+  .pixel-bubble {
     position: fixed;
-    bottom: -150px;
+    bottom: -20px;
     left: var(--bubble-left);
     width: var(--bubble-size);
     height: var(--bubble-size);
-    background: rgba(255, 255, 255, 0.85); /* ← Más opaco */
-    border: 2px solid rgba(200, 220, 255, 0.6); /* ← Borde más definido */
-    border-radius: 50%;
-    box-shadow: 
-      0 8px 25px rgba(61, 61, 61, 0.12),
-      inset 0 10px 25px 5px rgba(255, 255, 255, 0.98),
-      inset 0 -12px 25px rgba(180, 200, 240, 0.4),
-      inset 0 0 25px var(--bubble-color); /* ← Brillo de color más intenso */
-    backdrop-filter: blur(2px);
+    background: var(--bubble-color);
+    border: 1px solid var(--text-muted);
+    opacity: 0.6;
     pointer-events: none;
     z-index: 1;
     transform: translateY(var(--parallax-y));
-    animation: floatUp var(--bubble-duration) infinite ease-in;
+    animation: floatPixel var(--bubble-duration) infinite steps(4);
     animation-delay: var(--bubble-delay);
-    opacity: 0.9; /* ← Opacidad aumentada */
+    image-rendering: pixelated;
   }
   
-  .bubble::after {
-    content: "";
-    position: absolute;
-    top: 12%; left: 12%;
-    width: 30%; height: 22%;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.98);
-    transform: rotate(-30deg);
-    filter: blur(0.3px);
-    box-shadow: 0 2px 6px rgba(255,255,255,0.5);
-  }
-  
-  @keyframes floatUp {
+  @keyframes floatPixel {
     0% { transform: translateY(0) translateX(0); opacity: 0; }
-    10% { opacity: 0.9; }
-    50% { transform: translateY(-50vh) translateX(30px); }
-    100% { transform: translateY(-120vh) translateX(-15px); opacity: 0; }
+    10% { opacity: 0.6; }
+    50% { transform: translateY(-40vh) translateX(20px); }
+    100% { transform: translateY(-120vh) translateX(-10px); opacity: 0; }
   }
 
-  .confetti {
+  .confetti-pixel {
     position: fixed;
     top: -10px;
     pointer-events: none;
     z-index: 9999;
-    border-radius: 2px;
-    animation: confettiFall linear forwards;
+    image-rendering: pixelated;
+    animation: confettiPixel linear forwards;
   }
-  @keyframes confettiFall {
+  @keyframes confettiPixel {
     0% { transform: translateY(0) rotate(0deg); opacity: 1; }
-    100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+    100% { transform: translateY(100vh) rotate(360deg); opacity: 0; }
   }
 
-  .content {
-    max-width: 660px;
-    margin: 0 auto;
-    padding: 24px 20px 100px;
+  /* === PANEL PRINCIPAL CON BORDE DOBLE === */
+  .content-panel {
+    width: 100%;
+    max-width: 640px;
+    background: var(--bg-panel);
+    border: var(--border-width) solid var(--border-mint);
+    outline: var(--border-width) solid var(--border-ash);
+    outline-offset: 4px;
+    border-radius: var(--radius-lg);
+    padding: 0;
     position: relative;
     z-index: 10;
   }
 
-  header {
+  /* === ENCABEZADO RETRO === */
+  .panel-header {
+    padding: 16px 20px;
+    background: var(--bg-header);
+    border-bottom: var(--border-width) solid var(--border-default);
     text-align: center;
-    margin-bottom: 28px;
-    padding-top: 12px;
+    position: relative;
+  }
+  
+  .header-tab {
+    display: inline-block;
+    background: var(--border-rose);
+    color: var(--text-dark);
+    padding: 4px 16px;
+    border: var(--border-width) solid var(--text-dark);
+    border-bottom: none;
+    border-radius: var(--radius) var(--radius) 0 0;
+    margin-bottom: -2px;
+    position: relative;
+    z-index: 2;
   }
   
   .logo {
     font-family: 'VT323', monospace;
-    font-size: 3rem;
-    color: var(--green);
-    letter-spacing: 4px;
-    text-shadow: 0 2px 6px rgba(122, 138, 108, 0.15);
+    font-size: 1.8rem;
+    letter-spacing: 2px;
+    margin: 0;
+    font-weight: normal;
   }
   
   .subtitle {
-    color: var(--text-light);
+    color: var(--text-muted);
     font-size: 1rem;
-    margin-top: 6px;
-    font-weight: 500;
+    margin: 8px 0 12px;
+    letter-spacing: 1px;
   }
   
-  .stats {
-    display: flex;
-    justify-content: center;
-    gap: 16px;
-    margin-top: 14px;
-    flex-wrap: wrap;
+  .header-controls {
+    position: absolute;
+    top: 12px;
+    right: 16px;
   }
   
-  .stat-badge {
-    background: rgba(157, 181, 199, 0.25);
-    padding: 6px 16px;
-    border-radius: 40px;
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--text);
-    backdrop-filter: blur(4px);
-    border: 1px solid rgba(255, 255, 255, 0.6);
-  }
-
-  .mood-selector { margin-bottom: 16px; }
-  
-  .mood-label {
-    font-size: 0.9rem;
-    color: var(--text-light);
-    margin-bottom: 10px;
-    font-weight: 600;
-    text-align: center;
-  }
-  
-  .mood-options {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    justify-content: center;
-    margin-bottom: 12px;
-  }
-  
-  .mood-option {
-    padding: 8px 16px;
-    border-radius: 40px;
-    border: 2px solid transparent;
+  .btn-theme-toggle {
+    background: var(--bg-panel);
+    border: var(--border-width) solid var(--border-ash);
+    color: var(--text-main);
+    padding: 4px 12px;
+    font-family: 'VT323', monospace;
+    font-size: 1rem;
     cursor: pointer;
-    transition: all 0.25s cubic-bezier(0.34, 1.2, 0.64, 1);
     display: flex;
     align-items: center;
     gap: 6px;
-    font-weight: 600;
+    transition: all 0.15s steps(2);
+  }
+  
+  .btn-theme-toggle:hover {
+    background: var(--border-ash);
+    color: var(--text-dark);
+  }
+  
+  .theme-label {
+    font-size: 0.85rem;
+    text-transform: lowercase;
+  }
+  
+  .stats-bar {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    padding-top: 8px;
+    border-top: var(--border-dotted) var(--border-default);
+    font-size: 0.95rem;
+  }
+  
+  .stat-item { color: var(--text-muted); }
+  .stat-separator { color: var(--border-default); }
+
+  /* === SECCIONES CON TABS === */
+  .section-tab {
+    display: inline-block;
+    background: var(--border-mint);
+    color: var(--text-dark);
+    padding: 3px 14px;
+    border: var(--border-width) solid var(--text-dark);
+    border-bottom: none;
+    border-radius: var(--radius) var(--radius) 0 0;
+    margin: -2px 0 12px 16px;
+    position: relative;
+    z-index: 2;
+  }
+  
+  .tab-label {
     font-size: 0.9rem;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-  }
-  
-  .mood-option:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
-  }
-  
-  .mood-option.active {
-    border-color: var(--green);
-    transform: scale(1.05);
-    box-shadow: 0 0 0 3px rgba(122, 138, 108, 0.25);
-  }
-  
-  .mood-emoji { font-size: 1.2rem; }
-
-  .composer {
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(12px);
-    border-radius: var(--radius-lg);
-    padding: 24px;
-    box-shadow: var(--shadow);
-    margin-bottom: 32px;
-    border: 2px solid rgba(255, 255, 255, 0.9);
-    transition: all 0.3s ease;
-  }
-  
-  .composer:hover {
-    box-shadow: var(--shadow-hover);
-    transform: translateY(-2px);
+    text-transform: lowercase;
+    letter-spacing: 1px;
+    font-weight: normal;
   }
 
-  .preview-wrapper { position: relative; margin-bottom: 12px; }
+  /* === COMPOSITOR === */
+  .composer-panel {
+    padding: 20px;
+    background: var(--bg-card);
+    border-bottom: var(--border-width) solid var(--border-default);
+  }
+
+  .preview-box {
+    position: relative;
+    margin-bottom: 12px;
+    border: var(--border-width) dashed var(--border-ash);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
   
   .preview-media {
     width: 100%;
-    max-height: 220px;
-    border-radius: var(--radius-md);
+    max-height: 200px;
     object-fit: cover;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
-    border: 3px solid white;
+    display: block;
+    image-rendering: pixelated;
   }
   
   .preview-audio {
-    background: var(--sand);
-    padding: 12px 16px;
-    border-radius: var(--radius-md);
-    font-size: 0.9rem;
-    color: var(--text);
+    padding: 10px;
     text-align: center;
-    font-weight: 500;
+    color: var(--text-muted);
+    font-size: 0.9rem;
   }
   
-  .remove-preview {
+  .btn-remove {
     position: absolute;
-    top: 8px; right: 8px;
-    background: rgba(255, 255, 255, 0.98);
-    border: none;
-    border-radius: 50%;
-    width: 32px; height: 32px;
-    font-size: 1.2rem;
-    color: var(--text);
+    top: 4px;
+    right: 4px;
+    background: var(--border-rose);
+    border: var(--border-width) solid var(--text-dark);
+    color: var(--text-dark);
+    width: 24px;
+    height: 24px;
+    border-radius: 2px;
+    font-family: 'VT323', monospace;
+    font-size: 1rem;
     cursor: pointer;
-    transition: all 0.2s;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    transition: all 0.1s steps(2);
   }
   
-  .remove-preview:hover { 
-    transform: scale(1.1) rotate(90deg);
-    background: var(--pink);
+  .btn-remove:hover {
+    background: var(--text-dark);
+    color: var(--border-rose);
   }
 
+  /* === SELECTOR DE MOOD === */
+  .mood-selector { margin-bottom: 16px; }
+  
+  .mood-options {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  
+  .mood-option {
+    background: var(--bg-input);
+    border: var(--border-width) solid;
+    border-radius: var(--radius);
+    padding: 6px 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.9rem;
+    transition: all 0.1s steps(2);
+    font-family: 'VT323', monospace;
+  }
+  
+  .mood-option:hover {
+    background: var(--bg-panel);
+  }
+  
+  .mood-option.active {
+    background: var(--bg-header);
+    box-shadow: inset 0 0 0 2px var(--text-dark);
+  }
+  
+  .mood-emoji { font-size: 1.1rem; }
+  .mood-text { text-transform: lowercase; }
+
+  /* === TEXTAREA === */
   .composer-text {
     width: 100%;
-    border: none;
-    background: var(--sand);
-    border-radius: var(--radius-md);
-    padding: 14px 18px;
-    font-family: 'Nunito', sans-serif;
-    font-size: 1rem;
+    border: var(--border-width) solid var(--border-default);
+    background: var(--bg-input);
+    color: var(--text-main);
+    border-radius: var(--radius);
+    padding: 12px;
+    font-family: 'VT323', monospace;
+    font-size: 1.1rem;
     resize: vertical;
-    color: var(--text-dark);
-    line-height: 1.6;
-    transition: all 0.2s;
-    font-weight: 500;
+    min-height: 80px;
+    transition: border-color 0.1s steps(2);
   }
   
   .composer-text:focus {
-    outline: 3px solid var(--pink);
-    outline-offset: 3px;
-    background: white;
+    outline: none;
+    border-color: var(--border-mint);
+    box-shadow: inset 0 0 0 2px var(--border-mint);
+  }
+  
+  .composer-text::placeholder {
+    color: var(--text-muted);
+    opacity: 0.7;
   }
 
-  /* === BOTÓN DE EMOJIS NATIVOS === */
+  /* === BOTÓN EMOJI === */
   .emoji-helper {
-    display: flex;
-    justify-content: center;
-    margin: 8px 0 16px;
+    margin: 10px 0 16px;
+    text-align: center;
   }
   
-  .btn-emoji-picker {
-    background: linear-gradient(135deg, rgba(232,213,196,0.6), rgba(244,228,210,0.8));
-    border: 1px solid rgba(212,165,165,0.4);
-    font-size: 0.9rem;
-    padding: 8px 20px;
-    border-radius: 40px;
+  .btn-emoji {
+    background: var(--bg-input);
+    border: var(--border-width) solid var(--border-lavender);
+    color: var(--text-main);
+    padding: 5px 14px;
+    border-radius: var(--radius);
+    font-family: 'VT323', monospace;
+    font-size: 0.95rem;
     cursor: pointer;
-    transition: all 0.25s ease;
-    color: var(--text);
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    position: relative;
+    transition: all 0.1s steps(2);
   }
   
-  .btn-emoji-picker:hover {
-    transform: translateY(-2px);
-    background: linear-gradient(135deg, rgba(232,213,196,0.8), rgba(244,228,210,1));
-    box-shadow: 0 4px 12px rgba(212,165,165,0.25);
+  .btn-emoji:hover {
+    background: var(--border-lavender);
+    color: var(--text-dark);
   }
   
   .emoji-hint {
-    font-size: 0.75rem;
-    color: var(--text-light);
-    font-weight: 400;
-    opacity: 0.85;
+    color: var(--text-muted);
+    font-size: 0.8rem;
     margin-left: 4px;
+    opacity: 0.8;
   }
 
+  /* === ACCIONES === */
   .composer-actions {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
     flex-wrap: wrap;
-    margin-top: 8px;
   }
 
   .file-input-hidden { display: none; }
   
   .btn-attach {
-    background: var(--blue);
-    color: white;
-    padding: 10px 20px;
-    border-radius: 30px;
-    font-weight: 600;
-    font-size: 0.9rem;
+    background: var(--bg-input);
+    border: var(--border-width) solid var(--border-ash);
+    color: var(--text-main);
+    padding: 8px 16px;
+    border-radius: var(--radius);
+    font-family: 'VT323', monospace;
+    font-size: 0.95rem;
     cursor: pointer;
-    transition: all 0.2s;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 200px;
+    transition: all 0.1s steps(2);
+    text-transform: lowercase;
   }
   
-  .btn-attach:hover { 
-    background: #8AA3B8; 
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(157, 181, 199, 0.45);
+  .btn-attach:hover {
+    background: var(--border-ash);
+    color: var(--text-dark);
   }
 
   .btn-send {
-    background: var(--green);
-    color: white;
-    border: none;
-    padding: 12px 32px;
-    border-radius: 32px;
-    font-family: 'Nunito', sans-serif;
-    font-weight: 700;
+    background: var(--border-mint);
+    border: var(--border-width) solid var(--text-dark);
+    color: var(--text-dark);
+    padding: 8px 24px;
+    border-radius: var(--radius);
+    font-family: 'VT323', monospace;
     font-size: 1rem;
+    font-weight: normal;
     cursor: pointer;
-    transition: all 0.2s;
-    box-shadow: 0 4px 12px rgba(122, 138, 108, 0.3);
+    transition: all 0.1s steps(2);
+    text-transform: lowercase;
   }
   
-  .btn-send:hover:not(:disabled) { 
-    transform: translateY(-2px) scale(1.02); 
-    background: #6A7A5C;
-    box-shadow: 0 8px 20px rgba(122, 138, 108, 0.45);
+  .btn-send:hover:not(:disabled) {
+    background: var(--text-dark);
+    color: var(--border-mint);
   }
   
-  .btn-send:active:not(:disabled) { transform: scale(0.98); }
-  .btn-send:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-send:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  
   .btn-send.uploading {
-    background: var(--sand);
-    animation: pulse 1.5s ease-in-out infinite;
-    color: var(--text);
+    animation: blink 0.5s steps(2) infinite;
   }
   
-  @keyframes pulse { 0%, 100% { opacity: 0.75; } 50% { opacity: 1; } }
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
 
-  .feed { display: flex; flex-direction: column; gap: 20px; }
-  
-  .loader, .empty-state {
+  /* === FEED PANEL === */
+  .feed-panel {
+    padding: 20px;
+    background: var(--bg-card);
+  }
+
+  .loader-box, .empty-box {
     text-align: center;
-    padding: 40px 24px;
-    background: rgba(255,255,255,0.9);
-    backdrop-filter: blur(8px);
-    border-radius: var(--radius-lg);
-    border: 2px dashed var(--green-soft);
-    color: var(--text);
+    padding: 32px 20px;
+    border: var(--border-dashed) var(--border-default);
+    border-radius: var(--radius);
+    color: var(--text-muted);
   }
   
-  .loader { font-weight: 600; }
-  .empty-emoji { font-size: 3rem; display: block; margin-bottom: 12px; }
+  .loader-text { font-size: 1.1rem; }
+  .empty-icon { 
+    font-size: 2rem; 
+    display: block; 
+    margin-bottom: 8px;
+    color: var(--border-rose);
+  }
+  .empty-box small { 
+    display: block; 
+    margin-top: 4px; 
+    color: var(--text-muted);
+    font-size: 0.9rem;
+  }
 
-  .mascot-wrapper {
+  /* === MASCOTA PIXEL === */
+  .mascot-container {
     position: fixed;
-    bottom: 24px;
+    bottom: 20px;
     right: 20px;
     z-index: 20;
-    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
   }
   
-  .mascot {
-    width: 70px;
+  .mascot-pixel {
+    width: 60px;
     height: auto;
-    animation: floatMascot 3s ease-in-out infinite;
-    filter: drop-shadow(0 6px 12px rgba(61,61,61,0.15));
-    transition: transform 0.2s;
+    image-rendering: pixelated;
+    animation: floatPixelMascot 2s infinite steps(4);
+    filter: drop-shadow(2px 2px 0 var(--border-default));
   }
   
-  .mascot:hover { transform: scale(1.05); }
-  .mascot:hover + .mascot-tooltip { opacity: 1; transform: translateY(0); }
+  @keyframes floatPixelMascot {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
   
-  .mascot-tooltip {
+  .mascot-bubble {
+    background: var(--bg-panel);
+    border: var(--border-width) solid var(--border-rose);
+    border-radius: var(--radius);
+    padding: 6px 12px;
+    font-size: 0.9rem;
+    color: var(--text-main);
+    max-width: 180px;
+    text-align: right;
+    position: relative;
+  }
+  
+  .mascot-bubble::before {
+    content: '';
     position: absolute;
-    bottom: 75px;
-    right: 0;
-    background: white;
-    padding: 8px 16px;
-    border-radius: 30px;
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--text);
-    white-space: nowrap;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
-    opacity: 0;
-    transform: translateY(10px);
-    transition: all 0.3s ease;
+    bottom: -8px;
+    right: 12px;
+    border: 8px solid transparent;
+    border-top-color: var(--border-rose);
+    border-bottom: 0;
+  }
+
+  /* === CONFETTI CONTAINER === */
+  .confetti-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
     pointer-events: none;
-    border: 1px solid var(--sand);
-  }
-  
-  @keyframes floatMascot {
-    0%, 100% { transform: translateY(0) rotate(-3deg); }
-    50% { transform: translateY(-12px) rotate(3deg); }
+    z-index: 9998;
   }
 
-  @media (max-width: 768px) {
-    .bubble { --bubble-size: calc(var(--bubble-size) * 0.75) !important; }
-    .mood-options { gap: 6px; }
-    .mood-option { padding: 6px 12px; font-size: 0.85rem; }
-  }
-
-  @media (max-width: 560px) {
-    .logo { font-size: 2.5rem; }
+  /* === RESPONSIVE === */
+  @media (max-width: 680px) {
+    .app-wrapper { padding: 12px; }
+    .content-panel { 
+      outline-offset: 2px; 
+      border-radius: var(--radius);
+    }
+    .panel-header { padding: 12px 16px; }
+    .logo { font-size: 1.5rem; }
+    .composer-panel, .feed-panel { padding: 16px; }
     .composer-actions { flex-direction: column; align-items: stretch; }
     .btn-attach, .btn-send { width: 100%; text-align: center; }
-    .mascot { width: 55px; }
-    .stats { flex-direction: column; align-items: center; gap: 8px; }
-    .composer { padding: 18px; }
-    .bubble { --bubble-size: calc(var(--bubble-size) * 0.55) !important; }
-    .mood-options { flex-direction: column; }
-    .mood-option { justify-content: center; }
-    .emoji-hint { display: none; } /* Ocultar hint en móviles para ahorrar espacio */
+    .mascot-container { 
+      bottom: 12px; 
+      right: 12px; 
+    }
+    .mascot-pixel { width: 48px; }
+    .pixel-bubble { --bubble-size: calc(var(--bubble-size) * 0.7) !important; }
   }
 
-  @media (max-width: 380px) {
-    .bubble { display: none; }
+  @media (max-width: 400px) {
+    .pixel-bubble { display: none; }
+    .emoji-hint { display: none; }
+    .mood-options { justify-content: center; }
+    .header-controls { 
+      position: static; 
+      margin-top: 8px; 
+      display: flex; 
+      justify-content: center;
+    }
   }
 </style>
