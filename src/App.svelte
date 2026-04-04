@@ -35,9 +35,10 @@
   // 🟡 Búsqueda
   let searchTerm = '';
   
-  // 🟡 Edición
-  let editingPost = null;
-  let editText = '';
+  // 🟡 Edición - CORREGIDO
+let editingPost = null;
+let editText = '';
+let originalTextInput = ''; // Para guardar el texto original
   
   // === PAGINACIÓN ===
   let currentPage = 1;
@@ -183,40 +184,43 @@
     }
   }
 
-  // 🟡 Editar post
-  function startEdit(post) {
-    editingPost = post;
-    editText = post.text || '';
-    textareaRef?.focus();
-  }
+// 🟡 Editar post - CORREGIDO
+function startEdit(post) {
+  editingPost = post;
+  editText = post.text || '';
+  originalTextInput = textInput; // Guardar texto actual
+  textInput = editText; // Cargar texto del post en el textarea
+  textareaRef?.focus();
+}
 
-  async function saveEdit() {
-    if (!editText.trim() || !editingPost) return;
+async function saveEdit() {
+  if (!editText.trim() || !editingPost) return;
+  
+  try {
+    const { error } = await supabase
+      .from('posts')
+      .update({ text: editText })
+      .eq('id', editingPost.id);
     
-    try {
-      const { error } = await supabase
-        .from('posts')
-        .update({ text: editText })
-        .eq('id', editingPost.id);
-      
-      if (error) throw error;
-      
-      const index = posts.findIndex(p => p.id === editingPost.id);
-      if (index !== -1) {
-        posts[index].text = editText;
-        posts = [...posts];
-      }
-      editingPost = null;
-      editText = '';
-    } catch (err) {
-      alert('❌ Error al editar: ' + err.message);
+    if (error) throw error;
+    
+    const index = posts.findIndex(p => p.id === editingPost.id);
+    if (index !== -1) {
+      posts[index].text = editText;
+      posts = [...posts];
     }
+    cancelEdit(); // Usar cancelEdit para limpiar
+  } catch (err) {
+    alert('❌ Error al editar: ' + err.message);
   }
+}
 
-  function cancelEdit() {
-    editingPost = null;
-    editText = '';
-  }
+ function cancelEdit() {
+  editingPost = null;
+  editText = '';
+  textInput = originalTextInput; // Restaurar texto original
+  originalTextInput = '';
+}
 
   async function sendPost() {
     if (!textInput.trim() && !mediaFile) {
@@ -360,16 +364,15 @@
             maxlength="20"
           />
           
-          <!-- 🔴 Textarea con límite y contador -->
-          <textarea 
-            bind:value={textInput} 
-            bind:this={textareaRef}
-            placeholder="escribe algo aquí... (máx. {MAX_CHARS} caracteres)"
-            rows="4"
-            class="retro-textarea"
-            maxlength={MAX_CHARS}
-            disabled={editingPost !== null}
-          ></textarea>
+       <!-- 🔴 Textarea con límite y contador - CORREGIDO -->
+<textarea 
+  bind:value={textInput} 
+  bind:this={textareaRef}
+  placeholder={editingPost ? "editando mensaje..." : "escribe algo aquí... (máx. {MAX_CHARS} caracteres)"}
+  rows="4"
+  class="retro-textarea {editingPost ? 'editing-mode' : ''}"
+  maxlength={MAX_CHARS}
+></textarea>
           
           <!-- 🔴 Contador de caracteres -->
           <div class="char-counter {textInput.length > MAX_CHARS * 0.9 ? 'warning' : ''}">
@@ -404,27 +407,27 @@
                 📎
               </label>
               
-              {#if editingPost}
-                <button class="btn-retro-send" on:click={saveEdit} type="button">💾 Guardar</button>
-                <button class="btn-retro-cancel" on:click={cancelEdit} type="button">✕ Cancelar</button>
-              {:else}
-                <button 
-                  class="btn-retro-send" 
-                  on:click={sendPost} 
-                  disabled={(!textInput.trim() && !mediaFile) || isUploading}
-                  type="button"
-                >
-                  {#if isUploading}
-                    {#if uploadProgress > 0}
-                      {uploadProgress}%
-                    {:else}
-                      ⏳ Subiendo...
-                    {/if}
-                  {:else}
-                    ENVIAR
-                  {/if}
-                </button>
-              {/if}
+             {#if editingPost}
+  <button class="btn-retro-send btn-save" on:click={saveEdit} type="button">💾 Guardar</button>
+  <button class="btn-retro-cancel" on:click={cancelEdit} type="button">✕ Cancelar</button>
+{:else}
+  <button 
+    class="btn-retro-send" 
+    on:click={sendPost} 
+    disabled={(!textInput.trim() && !mediaFile) || isUploading}
+    type="button"
+  >
+    {#if isUploading}
+      {#if uploadProgress > 0}
+        {uploadProgress}%
+      {:else}
+        ⏳ Subiendo...
+      {/if}
+    {:else}
+      ENVIAR
+    {/if}
+  </button>
+{/if}
             </div>
           </div>
           
@@ -876,47 +879,68 @@
     50% { transform: translateY(-10px); }
   }
 
-  /* === PAGINACIÓN === */
-  .pagination-controls {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 12px;
-    margin-top: 24px;
-    padding-top: 16px;
-    border-top: 1px dashed var(--blue);
-  }
-  .page-btn {
-    font-family: 'VT323', monospace;
-    font-size: 1.1rem;
-    padding: 6px 16px;
-    background: var(--panel-bg);
-    border: 2px solid var(--pink);
-    border-radius: 0;
-    color: var(--text);
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  .page-btn:hover:not(:disabled) { background: var(--pink); color: white; }
-  .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-  .page-numbers { display: flex; gap: 6px; }
-  .page-number {
-    font-family: 'VT323', monospace;
-    font-size: 1rem;
-    width: 28px; height: 28px;
-    border: 1px solid var(--blue);
-    background: white;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  .page-number:hover { background: var(--blue); color: white; }
-  .page-number.active {
-    background: var(--green);
-    color: white;
-    border-color: var(--green);
-    font-weight: bold;
-  }
+ /* === PAGINACIÓN === */
+.pagination-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--blue);
+}
 
+.page-btn {
+  font-family: 'VT323', monospace;
+  font-size: 1.1rem;
+  padding: 6px 16px;
+  background: white; /* CAMBIADO: blanco en vez de transparente */
+  border: 2px solid var(--pink);
+  border-radius: 0;
+  color: black; /* CAMBIADO: negro */
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: bold; /* CAMBIADO: negrita */
+}
+
+.page-btn:hover:not(:disabled) { 
+  background: var(--pink); 
+  color: white; 
+}
+
+.page-btn:disabled { 
+  opacity: 0.4; 
+  cursor: not-allowed; 
+}
+
+.page-numbers { 
+  display: flex; 
+  gap: 6px; 
+}
+
+.page-number {
+  font-family: 'VT323', monospace;
+  font-size: 1rem;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--blue);
+  background: white; /* CAMBIADO: blanco */
+  color: black; /* CAMBIADO: negro */
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: bold; /* CAMBIADO: negrita */
+}
+
+.page-number:hover {
+  background: var(--blue);
+  color: white;
+}
+
+.page-number.active {
+  background: var(--green);
+  color: white;
+  border-color: var(--green);
+}
   @media (max-width: 600px) {
     .logo { font-size: 2.5rem; }
     .main-panel { padding: 20px; }
@@ -924,4 +948,18 @@
     .actions { justify-content: space-between; }
     .mascot { width: 60px; }
   }
+  /* 🟡 Modo edición */
+.retro-textarea.editing-mode {
+  border-color: var(--pink);
+  background: #fffef0;
+  box-shadow: 0 0 0 3px rgba(212, 165, 165, 0.2);
+}
+
+.btn-save {
+  background: var(--green) !important;
+  border-color: #5a6a4c !important;
+}
+.btn-save:hover {
+  background: #6a7a5c !important;
+}
 </style>
