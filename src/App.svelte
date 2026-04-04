@@ -6,15 +6,12 @@
 
   let posts = [];
   let loading = true;
-  
-  // Estado del formulario
   let textInput = '';
-  let authorName = ''; // Nuevo campo
+  let authorName = '';
   let mediaFile = null;
   let mediaPreview = null;
   let fileInputRef;
   let textareaRef;
-  
   let scrollY = 0;
   let channel;
   let isUploading = false;
@@ -22,12 +19,11 @@
   let todayCount = 0;
   let popSound;
   
-  // Moods simplificados (solo colores sutiles para el guestbook)
   const moods = [
     { label: 'Normal', color: '#FFFFFF' },
-    { label: 'Suave', color: '#FFF0F5' }, // Lavender Blush
-    { label: 'Cielo', color: '#F0F8FF' }, // Alice Blue
-    { label: 'Menta', color: '#F0FFF0' }  // Honeydew
+    { label: 'Suave', color: '#FFF0F5' },
+    { label: 'Cielo', color: '#F0F8FF' },
+    { label: 'Menta', color: '#F0FFF0' }
   ];
 
   let selectedMood = moods[0];
@@ -36,18 +32,8 @@
     popSound = new Audio('/soft-pop.mp3');
     popSound.volume = 0.15;
     
-    // Cargar posts
-    const { data, error } = await supabase
-      .from('posts')
-      .select('*')
-      .order('created_at', { ascending: false });
+    await loadPosts();
     
-    if (error) console.error('Error:', error);
-    else posts = data || [];
-    loading = false;
-    updateTodayCount();
-
-    // Realtime
     channel = supabase
       .channel('mecho-realtime')
       .on('postgres_changes', 
@@ -68,7 +54,26 @@
     window.removeEventListener('scroll', handleScroll);
   });
 
-  function handleScroll() { scrollY = window.scrollY; }
+  async function loadPosts() {
+    try {
+      const { data, error } = await supabase
+        .from('posts')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      posts = data || [];
+      loading = false;
+      updateTodayCount();
+    } catch (err) {
+      console.error('Error cargando posts:', err);
+      loading = false;
+    }
+  }
+
+  function handleScroll() { 
+    scrollY = window.scrollY; 
+  }
   
   function updateTodayCount() {
     const today = new Date().toDateString();
@@ -81,65 +86,79 @@
       const reader = new FileReader();
       reader.onload = e => { mediaPreview = e.target.result; };
       reader.readAsDataURL(mediaFile);
-    } else { mediaPreview = null; }
+    } else { 
+      mediaPreview = null; 
+    }
   }
 
   async function sendPost() {
-    if (!textInput.trim() && !mediaFile) return;
+    if (!textInput.trim() && !mediaFile) {
+      alert('Escribe algo o adjunta un archivo');
+      return;
+    }
     if (!authorName.trim()) {
-      alert('Por favor, firma tu mensaje.');
+      alert('Por favor, escribe tu nombre');
       return;
     }
 
     isUploading = true;
     let currentMediaUrl = null;
 
-    if (mediaFile) {
-      const fileExt = mediaFile.name.split('.').pop();
-      const safeName = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${fileExt}`;
-      const datePath = new Date().toISOString().split('T')[0];
-      const filePath = `posts/${datePath}/${safeName}`;
+    try {
+      if (mediaFile) {
+        const fileExt = mediaFile.name.split('.').pop();
+        const safeName = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${fileExt}`;
+        const datePath = new Date().toISOString().split('T')[0];
+        const filePath = `posts/${datePath}/${safeName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('mecho-media')
-        .upload(filePath, mediaFile, { cacheControl: '3600' });
+        const { error: uploadError } = await supabase.storage
+          .from('mecho-media')
+          .upload(filePath, mediaFile, { cacheControl: '3600' });
 
-      if (!uploadError) {
-        const { data: { publicUrl } } = supabase.storage.from('mecho-media').getPublicUrl(filePath);
+        if (uploadError) throw uploadError;
+        
+        const { data: { publicUrl } } = supabase.storage
+          .from('mecho-media')
+          .getPublicUrl(filePath);
         currentMediaUrl = publicUrl;
       }
-    }
 
-    let postType = 'note';
-    if (mediaFile) {
-      if (mediaFile.type.startsWith('image')) postType = 'image';
-      else if (mediaFile.type.startsWith('video')) postType = 'video';
-      else if (mediaFile.type.startsWith('audio')) postType = 'audio';
-    }
+      let postType = 'note';
+      if (mediaFile) {
+        if (mediaFile.type.startsWith('image')) postType = 'image';
+        else if (mediaFile.type.startsWith('video')) postType = 'video';
+        else if (mediaFile.type.startsWith('audio')) postType = 'audio';
+      }
 
-    const newPostData = {
-      text: textInput.trim(),
-      author_name: authorName.trim(), // Guardar nombre
-      media_url: currentMediaUrl,
-      mood_color: selectedMood.color, // Guardamos solo el color de fondo sutil
-      type: postType,
-      likes: 0
-    };
+      const newPostData = {
+        text: textInput.trim() || null,
+        author_name: authorName.trim(),
+        media_url: currentMediaUrl,
+        mood_color: selectedMood.color,
+        type: postType,
+        likes: 0
+      };
 
-    const { error: dbError } = await supabase.from('posts').insert([newPostData]);
-    
-    if (dbError) {
-      console.error('Error BD:', dbError);
-      alert('Error al guardar');
-    } else {
+      const { error: dbError } = await supabase
+        .from('posts')
+        .insert([newPostData]);
+      
+      if (dbError) throw dbError;
+
+      // Limpiar formulario
       textInput = ''; 
       authorName = '';
       mediaFile = null; 
       mediaPreview = null;
       selectedMood = moods[0];
       if (fileInputRef) fileInputRef.value = '';
+      
+    } catch (error) {
+      console.error('Error detallado:', error);
+      alert('Error al guardar: ' + error.message);
+    } finally {
+      isUploading = false;
     }
-    isUploading = false;
   }
 
   async function handleLike(postId, isLiked) {
@@ -152,7 +171,6 @@
     }
   }
 
-  // Burbujas simplificadas y enviadas al fondo
   const bubbles = Array.from({ length: 8 }).map((_, i) => ({
     left: Math.random() * 90 + '%',
     delay: Math.random() * 5 + 's',
@@ -163,10 +181,8 @@
 </script>
 
 <div class="app-wrapper">
-  <!-- Fondo fijo -->
   <div class="bg-image"></div>
 
-  <!-- Burbujas detrás del contenido (z-index bajo) -->
   <div class="bubble-layer">
     {#each bubbles as bubble, i}
       <div class="bubble" 
@@ -186,11 +202,19 @@
       <h1 class="logo">GUESTBOOK</h1>
       <p class="subtitle">deja tu huella suave</p>
     </header>
+      <!-- Mecho Mascot -->
+    <div class="mascot-container">
+      <img src="/mecho.png" alt="Mecho" class="mascot" />
+      <div class="mascot-tooltip">
+        {#if todayCount > 0}
+          ¡{todayCount} registro{todayCount > 1 ? 's' : ''} hoy! 💖
+        {:else}
+          ¡Cuéntame tu día! 🌸
+        {/if}
+      </div>
+    </div>
 
-    <!-- PANEL PRINCIPAL (Cuadro con borde doble) -->
     <section class="main-panel">
-      
-      <!-- Área de Input Retro -->
       <div class="input-window">
         <div class="window-title-bar">
           <span>nuevo_mensaje.txt</span>
@@ -222,6 +246,7 @@
                   style="background-color: {mood.color}; border: 1px solid #ccc"
                   on:click={() => selectedMood = mood}
                   title={mood.label}
+                  type="button"
                 ></button>
               {/each}
             </div>
@@ -229,19 +254,20 @@
             <div class="actions">
               <input 
                 type="file" 
-                accept="image/*,video/*" 
+                accept="image/*,video/*,audio/*" 
                 bind:this={fileInputRef} 
                 on:change={handleFileChange} 
                 class="file-input-hidden"
                 id="media-input"
               />
-              <label for="media-input" class="btn-retro-attach">
+              <label for="media-input" class="btn-retro-attach" title="Adjuntar archivo">
                 📎
               </label>
               <button 
                 class="btn-retro-send" 
                 on:click={sendPost} 
                 disabled={(!textInput.trim() && !mediaFile) || isUploading}
+                type="button"
               >
                 {#if isUploading}...{:else}ENVIAR{/if}
               </button>
@@ -250,14 +276,19 @@
           
           {#if mediaPreview}
             <div class="mini-preview">
-              <img src={mediaPreview} alt="preview" />
-              <button on:click={() => { mediaPreview=null; mediaFile=null; }}>x</button>
+              {#if mediaFile?.type?.startsWith('image')}
+                <img src={mediaPreview} alt="vista previa" />
+              {:else if mediaFile?.type?.startsWith('video')}
+                <video src={mediaPreview} muted />
+              {:else}
+                <span> {mediaFile.name.slice(0, 20)}...</span>
+              {/if}
+              <button on:click={() => { mediaPreview=null; mediaFile=null; if(fileInputRef) fileInputRef.value=''; }} type="button">x</button>
             </div>
           {/if}
         </div>
       </div>
 
-      <!-- FEED DE MENSAJES -->
       <section class="feed-container">
         {#if loading}
           <div class="loader-text">cargando memorias...</div>
@@ -272,6 +303,7 @@
         {/if}
       </section>
     </section>
+
   </main>
 </div>
 
@@ -288,23 +320,15 @@
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
-  body {
-    font-family: 'Nunito', sans-serif;
-    color: #333;
-    overflow-x: hidden;
-    min-height: 100vh;
-  }
-
-  /* FONDO GEEN.WEBP */
   .bg-image {
     position: fixed;
     top: 0; left: 0; width: 100%; height: 100%;
-    background-image: url('/geen.webp'); /* Asegúrate que esté en public */
+    background-image: url('/geen.webp');
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
     z-index: -2;
-    opacity: 0.6; /* Un poco transparente para que no moleste */
+    opacity: 0.6;
   }
 
   .app-wrapper {
@@ -312,12 +336,11 @@
     min-height: 100vh;
   }
 
-  /* CAPA DE BURBUJAS (Detrás de todo) */
   .bubble-layer {
     position: fixed;
     top: 0; left: 0; width: 100%; height: 100%;
     pointer-events: none;
-    z-index: 0; /* DETRÁS del contenido */
+    z-index: 0;
     overflow: hidden;
   }
 
@@ -343,10 +366,10 @@
 
   .content {
     position: relative;
-    z-index: 10; /* ENCIMA de las burbujas */
+    z-index: 10;
     max-width: 600px;
     margin: 0 auto;
-    padding: 40px 20px;
+    padding: 40px 20px 120px;
   }
 
   .retro-header {
@@ -370,16 +393,14 @@
     text-transform: uppercase;
   }
 
-  /* ESTRUCTURA DE CUADRO (PANEL) */
   .main-panel {
     background: var(--panel-bg);
-    border: 4px double var(--pink); /* Borde doble Sweet-pea */
+    border: 4px double var(--pink);
     padding: 30px;
     box-shadow: 8px 8px 0px rgba(212, 165, 165, 0.2);
     backdrop-filter: blur(5px);
   }
 
-  /* INPUT RETRO (Estilo Ventana) */
   .input-window {
     border: 1px solid #999;
     background: #ececec;
@@ -423,11 +444,15 @@
     outline: none;
   }
 
+  .retro-input-name::placeholder {
+    color: #aaa;
+  }
+
   .retro-textarea {
     width: 100%;
     background: #fff;
-    border: 1px solid var(--green); /* Borde verde sólido */
-    border-radius: 0; /* Sin bordes redondos */
+    border: 1px solid var(--green);
+    border-radius: 0;
     padding: 10px;
     font-family: 'Nunito', sans-serif;
     font-size: 1rem;
@@ -439,6 +464,10 @@
 
   .retro-textarea:focus {
     background: #fffff0;
+  }
+
+  .retro-textarea::placeholder {
+    color: #999;
   }
 
   .input-footer {
@@ -455,7 +484,7 @@
 
   .mood-dot {
     width: 20px; height: 20px;
-    border-radius: 0; /* Cuadrados */
+    border-radius: 0;
     cursor: pointer;
     border: 1px solid #ccc;
     transition: transform 0.2s;
@@ -478,13 +507,20 @@
     background: #ddd;
     cursor: pointer;
     box-shadow: 2px 2px 0px #999;
-    active: translate(2px, 2px);
+  }
+
+  .btn-retro-attach:hover {
+    background: #ccc;
   }
 
   .btn-retro-send {
     background: var(--pink);
     color: white;
     border-color: #b08585;
+  }
+
+  .btn-retro-send:hover:not(:disabled) {
+    background: #c49595;
   }
 
   .btn-retro-send:disabled {
@@ -497,16 +533,30 @@
     position: relative;
     display: inline-block;
     border: 1px solid #999;
+    background: white;
+    padding: 4px;
   }
-  .mini-preview img { max-height: 60px; display: block; }
+  
+  .mini-preview img, .mini-preview video { 
+    max-height: 60px; 
+    display: block; 
+    max-width: 200px;
+  }
+  
   .mini-preview button {
-    position: absolute; top: -5px; right: -5px;
-    background: red; color: white; border: none;
-    width: 16px; height: 16px; font-size: 10px;
+    position: absolute; 
+    top: -5px; 
+    right: -5px;
+    background: red; 
+    color: white; 
+    border: none;
+    width: 16px; 
+    height: 16px; 
+    font-size: 10px;
     cursor: pointer;
+    line-height: 1;
   }
 
-  /* FEED */
   .feed-container {
     display: flex;
     flex-direction: column;
@@ -516,7 +566,65 @@
     text-align: center;
     font-family: 'VT323', monospace;
     font-size: 1.2rem;
-    color: var(--text-light);
+    color: #888;
     padding: 20px;
+  }
+
+/* Mecho Mascot */
+.mascot-container {
+  text-align: center;
+  margin: 20px auto 30px;
+  cursor: pointer;
+  position: relative; /* Cambiado de fixed a relative */
+}
+
+  .mascot {
+    width: 80px;
+    height: auto;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.2));
+    transition: transform 0.3s;
+    animation: float 3s ease-in-out infinite;
+  }
+
+  .mascot:hover {
+    transform: scale(1.1);
+  }
+
+  .mascot:hover + .mascot-tooltip {
+    opacity: 1;
+     transform: translateY(0) translateX(-50%);  /* Agrega translateX */
+  }
+
+  .mascot-tooltip {
+    position: absolute;
+    bottom: 85px;
+    right: 0;
+    background: white;
+    padding: 8px 12px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #333;
+    left: 50%;      /* Agrega esto */
+    white-space: nowrap;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.3s ease;
+    pointer-events: none;
+    border: 2px solid var(--pink);
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+
+  @media (max-width: 600px) {
+    .logo { font-size: 2.5rem; }
+    .main-panel { padding: 20px; }
+    .input-footer { flex-direction: column; gap: 10px; align-items: stretch; }
+    .actions { justify-content: space-between; }
+    .mascot { width: 60px; }
   }
 </style>
