@@ -7,20 +7,9 @@
   
   function formatTime(dateString) {
     const d = new Date(dateString);
-    const now = new Date();
-    const diffMs = now - d;
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-    
-    if (diffMins < 1) return 'ahorita 💫';
-    if (diffMins < 60) return `hace ${diffMins} ${diffMins === 1 ? 'min' : 'mins'} 🌸`;
-    if (diffHours < 24) return `hace ${diffHours} ${diffHours === 1 ? 'hora' : 'horas'} ✨`;
-    if (diffDays < 7) return `hace ${diffDays} ${diffDays === 1 ? 'día' : 'días'} 🫧`;
-    
     return d.toLocaleString('es-ES', { 
-      day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
-    });
+      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+    }).replace('.', '');
   }
   
   function handleLike() {
@@ -30,177 +19,113 @@
   }
 </script>
 
-<article class="post-card" style="background-color: {post.color || '#FFFFFF'}">
-  <!-- Badge de mood -->
-  {#if post.mood_emoji}
-    <div class="mood-badge">
-      <span class="mood-emoji">{post.mood_emoji}</span>
-      <span class="mood-label">{post.mood}</span>
-    </div>
-  {/if}
+<article class="guestbook-entry" style="background-color: {post.mood_color || '#FFFFFF'}">
   
-  {#if post.text}
-    <p class="post-text">{post.text}</p>
-  {/if}
-  
-  {#if post.media_url}
-    <div class="media-wrapper">
-      {#if post.type === 'image'}
-        <img src={post.media_url} alt="Recuerdo compartido" loading="lazy" class="post-media" />
-      {:else if post.type === 'video'}
-        <video controls src={post.media_url} class="post-media" preload="metadata"></video>
-      {:else if post.type === 'audio'}
-        <audio controls src={post.media_url} class="post-audio"></audio>
-      {/if}
-    </div>
-  {/if}
+  <!-- Cabecera: Fecha y Autor (Estilo Retro) -->
+  <div class="entry-header">
+    <span class="meta-date">{formatTime(post.created_at)}</span>
+    <span class="meta-author">— {post.author_name || 'anónimo'}</span>
+  </div>
 
-  <div class="post-footer">
-    <time class="post-time">{formatTime(post.created_at)}</time>
-    <button class="like-btn {liked ? 'liked' : ''}" on:click={handleLike}>
-      {liked ? '💖' : '🩶'} 
-      <span class="like-count">{localLikes}</span>
+  <!-- Contenido -->
+  <div class="entry-body">
+    {#if post.text}
+      <p class="entry-text">{post.text}</p>
+    {/if}
+    
+    {#if post.media_url}
+      <div class="entry-media">
+        {#if post.type === 'image'}
+          <img src={post.media_url} alt="adjunto" loading="lazy" />
+        {:else if post.type === 'video'}
+          <video controls src={post.media_url}></video>
+        {/if}
+      </div>
+    {/if}
+  </div>
+
+  <!-- Pie: Likes simples -->
+  <div class="entry-footer">
+    <button class="like-trigger {liked ? 'active' : ''}" on:click|preventDefault={handleLike}>
+      [{localLikes}]
     </button>
   </div>
+
 </article>
 
 <style>
-  .post-card {
-    background: #FFFFFF;
-    border-radius: 28px 32px 24px 36px;
-    padding: 20px 22px;
-    box-shadow: 0 8px 24px rgba(139, 154, 124, 0.1);
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    transition: all 0.35s cubic-bezier(0.34, 1.2, 0.64, 1);
-    border: 2px solid rgba(232, 213, 183, 0.4);
+  @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+
+  .guestbook-entry {
+    /* Fondo ligeramente más claro que el panel para notar el recuadro */
+    background-color: #FFFCF8; 
+    padding: 15px 10px;
     position: relative;
-    overflow: hidden;
+    transition: background-color 0.3s;
+  }
+
+  /* LÍNEA HORIZONTAL FINA Y PUNTEADA (Regla estricta) */
+  .guestbook-entry + .guestbook-entry {
+    border-top: 1px dashed var(--blue, #9DB5C7);
   }
   
-  .post-card::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: radial-gradient(circle at 30% 20%, rgba(255,255,255,0.4) 0%, transparent 60%);
-    pointer-events: none;
-  }
-  
-  .post-card:hover { 
-    transform: translateY(-6px) scale(1.01); 
-    box-shadow: 0 18px 40px rgba(139, 154, 124, 0.2); 
-    border-color: rgba(232, 213, 183, 0.7);
-  }
-  
-  /* === BADGE DE MOOD === */
-  .mood-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    background: rgba(255,255,255,0.7);
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: #5A5A5A;
-    align-self: flex-start;
-    backdrop-filter: blur(4px);
-    border: 1px solid rgba(200,220,255,0.4);
-  }
-  
-  .mood-emoji { font-size: 1.1rem; }
-  .mood-label { opacity: 0.9; }
-  
-  .post-text {
-    font-size: 1.05rem;
-    line-height: 1.65;
-    color: #4A4A4A;
-    white-space: pre-wrap;
-    word-wrap: break-word;
-    position: relative;
-    z-index: 1;
-    font-weight: 500;
-  }
-  
-  .media-wrapper {
-    position: relative;
-    border-radius: 22px;
-    overflow: hidden;
-  }
-  
-  .post-media {
-    width: 100%;
-    border-radius: 22px;
-    object-fit: cover;
-    max-height: 420px;
-    transition: transform 0.4s ease;
-  }
-  
-  .media-wrapper:hover .post-media {
-    transform: scale(1.02);
-  }
-  
-  .post-audio {
-    width: 100%;
-    border-radius: 30px;
-    background: rgba(249, 247, 243, 0.9);
-  }
-  
-  .post-footer {
+  /* Si es el primer elemento, quizás quieras un borde arriba también o no, 
+     dependiendo si hay un título. Aquí lo dejo limpio. */
+
+  .entry-header {
+    font-family: 'VT323', monospace;
+    font-size: 1rem;
+    color: #888;
+    margin-bottom: 8px;
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    margin-top: 6px;
+    text-transform: lowercase;
   }
-  
-  .post-time {
-    font-size: 0.7rem;
-    color: #A8B8A0;
-    font-family: 'VT323', monospace;
-    letter-spacing: 0.8px;
-    opacity: 0.85;
-    font-weight: 500;
+
+  .meta-author {
+    color: var(--green, #7A8A6C);
+    font-weight: bold;
   }
-  
-  .like-btn {
-    background: rgba(232, 213, 183, 0.3);
-    border: none;
+
+  .entry-text {
+    font-family: 'Nunito', sans-serif;
     font-size: 1rem;
+    line-height: 1.5;
+    color: #333;
+    white-space: pre-wrap;
+    margin-bottom: 10px;
+  }
+
+  .entry-media {
+    margin-top: 10px;
+    border: 1px solid #eee;
+    padding: 4px;
+    background: white;
+    display: inline-block;
+    max-width: 100%;
+  }
+
+  .entry-media img, .entry-media video {
+    max-width: 100%;
+    max-height: 300px;
+    display: block;
+  }
+
+  .entry-footer {
+    margin-top: 8px;
+    text-align: right;
+  }
+
+  .like-trigger {
+    font-family: 'VT323', monospace;
+    background: none;
+    border: none;
+    color: #aaa;
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 14px;
-    border-radius: 40px;
-    transition: all 0.25s ease;
-    color: #A8B8A0;
-    font-weight: 600;
+    font-size: 1.1rem;
   }
-  
-  .like-btn:hover {
-    transform: scale(1.08);
-    background: rgba(232, 213, 183, 0.5);
+
+  .like-trigger:hover, .like-trigger.active {
+    color: var(--pink, #D4A5A5);
   }
-  
-  .like-btn:active { transform: scale(0.95); }
-  
-  .like-btn.liked {
-    background: rgba(244, 194, 194, 0.35);
-    color: #F4C2C2;
-  }
-  
-  .like-count {
-    font-size: 0.75rem;
-    font-family: monospace;
-    font-weight: 600;
-  }
-  
-  @keyframes gentlePop {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.05); background: rgba(244, 194, 194, 0.5); }
-    100% { transform: scale(1); }
-  }
-  
-  .like-btn.liked { animation: gentlePop 0.3s ease; }
 </style>
