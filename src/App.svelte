@@ -406,29 +406,35 @@
     100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
   }
 
-  /* ===== BURBUJAS REALISTAS CSS ===== */
-  .bubble {
+  /* Busca la clase .bubble en tu <style> y reemplázala con esto */
+.bubble {
     position: fixed;
     bottom: -150px;
     left: var(--bubble-left);
     width: var(--bubble-size);
     height: var(--bubble-size);
-    background: rgba(255, 255, 255, 0.1);
+    
+    /* MEJORA 1: Fondo más visible (0.3 en lugar de 0.1) */
+    background: rgba(255, 255, 255, 0.3); 
+    
+    /* MEJORA 2: Un borde blanco muy fino para definir la forma */
+    border: 1px solid rgba(255, 255, 255, 0.5); 
+    
     border-radius: 50%;
     box-shadow: 
-      0 20px 30px rgba(0, 0, 0, 0.1),
-      inset 0 10px 30px 5px rgba(255, 255, 255, 0.8),
-      inset 0 -15px 30px 0px rgba(255, 255, 255, 0.4),
-      inset 0 0 20px var(--bubble-color);
-    backdrop-filter: blur(1px);
+      0 20px 30px rgba(0, 0, 0, 0.05),
+      inset 0 10px 30px 5px rgba(255, 255, 255, 1), /* Brillo interno más fuerte */
+      inset 0 -15px 30px 0px rgba(255, 255, 255, 0.6),
+      inset 0 0 25px var(--bubble-color); /* Color un poco más intenso */
+    
+    backdrop-filter: blur(2px); /* Un poquito más de desenfoque interno */
     pointer-events: none;
     z-index: 1;
     transform: translateY(var(--parallax-y));
     animation: floatUp var(--bubble-duration) infinite ease-in;
     animation-delay: var(--bubble-delay);
     will-change: transform;
-  }
-
+}
   .bubble::after {
     content: "";
     position: absolute;
