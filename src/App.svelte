@@ -435,7 +435,8 @@
     animation-delay: var(--bubble-delay);
     will-change: transform;
 }
-  .bubble::after {
+/* Busca .bubble::after y ajusta el background */
+.bubble::after {
     content: "";
     position: absolute;
     top: 15%;
@@ -443,17 +444,17 @@
     width: 25%;
     height: 20%;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.6);
+    background: rgba(255, 255, 255, 0.9); /* Subimos de 0.6 a 0.9 */
     transform: rotate(-30deg);
     filter: blur(1px);
-  }
+}
 
-  @keyframes floatUp {
+@keyframes floatUp {
     0% { transform: translateY(0) translateX(0); opacity: 0; }
-    10% { opacity: 0.6; }
-    50% { transform: translateY(-50vh) translateX(30px); }
+    15% { opacity: 0.8; } /* Subimos de 0.6 a 0.8 para que se noten rápido */
+    80% { opacity: 0.8; }
     100% { transform: translateY(-120vh) translateX(-15px); opacity: 0; }
-  }
+}
 
   /* ===== CONTENIDO PRINCIPAL ===== */
   .content {
