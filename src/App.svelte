@@ -284,7 +284,7 @@
 
   :root {
     /* Tema claro original - suave y acogedor */
-    --bg: #FDFBF5;
+    --bg: #b6a265;
     --bg-gradient: linear-gradient(135deg, #FDFBF5 0%, #FFF9F0 50%, #FDFBF5 100%);
     --card: #FFFFFF;
     --green: #8B9A7C;
