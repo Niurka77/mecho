@@ -168,12 +168,7 @@
     </div>
   {/each}
 
-  <!-- Burbuja principal con Mew (parallax al scroll) -->
-  <div class="mew-bubble" style="--parallax: {scrollY * 0.08}px;">
-    <div class="bubble-core">
-      <span class="mew-pair">🤍🫧</span>
-    </div>
-  </div>
+ 
 
   <main class="content">
     <header>
@@ -344,35 +339,6 @@
     100% { transform: translateY(20px) rotate(3deg); }
   }
 
-  /* Burbuja principal con Mew */
-  .mew-bubble {
-    position: fixed;
-    top: 12%;
-    left: 12px;
-    width: 90px;
-    height: 110px;
-    z-index: 5;
-    pointer-events: none;
-    transform: translateY(var(--parallax));
-    transition: transform 0.1s linear;
-  }
-  .bubble-core {
-    background: rgba(255, 255, 255, 0.7);
-    border-radius: 50%;
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 2rem;
-    box-shadow: 0 10px 30px rgba(168, 195, 214, 0.25);
-    animation: bubbleDrift 14s ease-in-out infinite alternate;
-    border: 2px solid rgba(255, 255, 255, 0.4);
-  }
-  @keyframes bubbleDrift {
-    0% { transform: translateY(0) rotate(-6deg); }
-    100% { transform: translateY(35px) rotate(6deg); }
-  }
 
   /* ===== CONTENIDO PRINCIPAL ===== */
   .content {
