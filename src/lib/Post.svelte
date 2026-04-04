@@ -1,7 +1,6 @@
 <script>
   export let post;
   export let onLike = () => {};
-  export let darkMode = true;
   
   let liked = false;
   let localLikes = post.likes || 0;
@@ -14,14 +13,14 @@
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
     
-    if (diffMins < 1) return 'now ✦';
-    if (diffMins < 60) return `${diffMins}m ago ✿`;
-    if (diffHours < 24) return `${diffHours}h ago ★`;
-    if (diffDays < 7) return `${diffDays}d ago ❀`;
+    if (diffMins < 1) return 'ahorita 💫';
+    if (diffMins < 60) return `hace ${diffMins} ${diffMins === 1 ? 'min' : 'mins'} 🌸`;
+    if (diffHours < 24) return `hace ${diffHours} ${diffHours === 1 ? 'hora' : 'horas'} ✨`;
+    if (diffDays < 7) return `hace ${diffDays} ${diffDays === 1 ? 'día' : 'días'} 🫧`;
     
-    return d.toLocaleString('en-US', { 
-      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
-    }).replace(',', '');
+    return d.toLocaleString('es-ES', { 
+      day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+    });
   }
   
   function handleLike() {
@@ -31,198 +30,177 @@
   }
 </script>
 
-<article class="post-card" style="--mood-border: {post.mood_border || '#A8B8A0'}">
-  
-  <!-- Badge de Mood estilo retro -->
+<article class="post-card" style="background-color: {post.color || '#FFFFFF'}">
+  <!-- Badge de mood -->
   {#if post.mood_emoji}
     <div class="mood-badge">
       <span class="mood-emoji">{post.mood_emoji}</span>
-      <span class="mood-label">{post.mood?.toLowerCase()}</span>
+      <span class="mood-label">{post.mood}</span>
     </div>
   {/if}
   
-  <!-- Texto del post -->
   {#if post.text}
     <p class="post-text">{post.text}</p>
   {/if}
   
-  <!-- Media -->
   {#if post.media_url}
-    <div class="media-frame">
+    <div class="media-wrapper">
       {#if post.type === 'image'}
-        <img src={post.media_url} alt="entry" loading="lazy" class="post-media" />
+        <img src={post.media_url} alt="Recuerdo compartido" loading="lazy" class="post-media" />
       {:else if post.type === 'video'}
         <video controls src={post.media_url} class="post-media" preload="metadata"></video>
       {:else if post.type === 'audio'}
-        <div class="audio-box">
-          <span class="audio-icon">♪</span>
-          <audio controls src={post.media_url} class="post-audio"></audio>
-        </div>
+        <audio controls src={post.media_url} class="post-audio"></audio>
       {/if}
     </div>
   {/if}
 
-  <!-- Footer con likes y fecha -->
   <div class="post-footer">
     <time class="post-time">{formatTime(post.created_at)}</time>
-    <button class="like-btn {liked ? 'liked' : ''}" on:click={handleLike} type="button">
-      <span class="like-icon">{liked ? '♥' : '♡'}</span>
+    <button class="like-btn {liked ? 'liked' : ''}" on:click={handleLike}>
+      {liked ? '💖' : '🩶'} 
       <span class="like-count">{localLikes}</span>
     </button>
   </div>
-  
-  <!-- Borde decorativo inferior -->
-  <div class="post-decoration"></div>
 </article>
 
 <style>
   .post-card {
-    background: var(--bg-card);
-    border: var(--border-width) solid var(--border-default);
-    outline: var(--border-width) solid var(--mood-border);
-    outline-offset: -2px;
-    border-radius: var(--radius);
-    padding: 16px;
-    margin-bottom: 16px;
+    background: #FFFFFF;
+    border-radius: 28px 32px 24px 36px;
+    padding: 20px 22px;
+    box-shadow: 0 8px 24px rgba(139, 154, 124, 0.1);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    transition: all 0.35s cubic-bezier(0.34, 1.2, 0.64, 1);
+    border: 2px solid rgba(232, 213, 183, 0.4);
     position: relative;
-    transition: all 0.1s steps(2);
+    overflow: hidden;
   }
   
-  .post-card:hover {
-    outline-color: var(--border-rose);
-    transform: translateX(2px);
+  .post-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: radial-gradient(circle at 30% 20%, rgba(255,255,255,0.4) 0%, transparent 60%);
+    pointer-events: none;
   }
   
-  /* Badge de Mood */
+  .post-card:hover { 
+    transform: translateY(-6px) scale(1.01); 
+    box-shadow: 0 18px 40px rgba(139, 154, 124, 0.2); 
+    border-color: rgba(232, 213, 183, 0.7);
+  }
+  
+  /* === BADGE DE MOOD === */
   .mood-badge {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    background: var(--bg-header);
-    border: var(--border-width) solid var(--mood-border);
-    padding: 3px 10px;
-    border-radius: var(--radius);
-    font-size: 0.85rem;
-    margin-bottom: 10px;
-    color: var(--text-muted);
+    gap: 6px;
+    background: rgba(255,255,255,0.7);
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #5A5A5A;
+    align-self: flex-start;
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(200,220,255,0.4);
   }
   
-  .mood-emoji { font-size: 1rem; }
-  .mood-label { text-transform: lowercase; }
+  .mood-emoji { font-size: 1.1rem; }
+  .mood-label { opacity: 0.9; }
   
-  /* Texto */
   .post-text {
-    font-size: 1.1rem;
-    line-height: 1.6;
-    color: var(--text-main);
+    font-size: 1.05rem;
+    line-height: 1.65;
+    color: #4A4A4A;
     white-space: pre-wrap;
     word-wrap: break-word;
-    margin-bottom: 12px;
+    position: relative;
+    z-index: 1;
+    font-weight: 500;
   }
   
-  /* Frame de media */
-  .media-frame {
-    border: var(--border-width) dashed var(--border-default);
-    border-radius: var(--radius);
+  .media-wrapper {
+    position: relative;
+    border-radius: 22px;
     overflow: hidden;
-    margin-bottom: 12px;
   }
   
   .post-media {
     width: 100%;
-    display: block;
-    image-rendering: pixelated;
-    max-height: 360px;
+    border-radius: 22px;
     object-fit: cover;
+    max-height: 420px;
+    transition: transform 0.4s ease;
   }
   
-  .audio-box {
-    padding: 10px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  
-  .audio-icon {
-    font-size: 1.2rem;
-    color: var(--border-rose);
+  .media-wrapper:hover .post-media {
+    transform: scale(1.02);
   }
   
   .post-audio {
     width: 100%;
-    filter: invert(var(--audio-filter, 0));
+    border-radius: 30px;
+    background: rgba(249, 247, 243, 0.9);
   }
   
-  /* Footer */
   .post-footer {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding-top: 10px;
-    border-top: var(--border-dotted) var(--border-default);
+    margin-top: 6px;
   }
   
   .post-time {
-    font-size: 0.85rem;
-    color: var(--text-muted);
-    letter-spacing: 0.5px;
+    font-size: 0.7rem;
+    color: #A8B8A0;
+    font-family: 'VT323', monospace;
+    letter-spacing: 0.8px;
+    opacity: 0.85;
+    font-weight: 500;
   }
   
-  /* Botón Like estilo retro */
   .like-btn {
-    background: transparent;
-    border: var(--border-width) solid var(--border-default);
-    color: var(--text-muted);
-    padding: 4px 12px;
-    border-radius: var(--radius);
-    font-family: 'VT323', monospace;
-    font-size: 0.9rem;
+    background: rgba(232, 213, 183, 0.3);
+    border: none;
+    font-size: 1rem;
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 4px;
-    transition: all 0.1s steps(2);
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 40px;
+    transition: all 0.25s ease;
+    color: #A8B8A0;
+    font-weight: 600;
   }
   
   .like-btn:hover {
-    border-color: var(--border-rose);
-    color: var(--border-rose);
+    transform: scale(1.08);
+    background: rgba(232, 213, 183, 0.5);
   }
+  
+  .like-btn:active { transform: scale(0.95); }
   
   .like-btn.liked {
-    border-color: var(--border-rose);
-    color: var(--border-rose);
-    background: rgba(244, 194, 194, 0.1);
+    background: rgba(244, 194, 194, 0.35);
+    color: #F4C2C2;
   }
   
-  .like-icon { font-size: 1.1rem; }
-  .like-count { font-size: 0.9rem; }
-  
-  /* Decoración inferior pixelada */
-  .post-decoration {
-    position: absolute;
-    bottom: -2px;
-    left: 8px;
-    right: 8px;
-    height: 2px;
-    background: repeating-linear-gradient(
-      90deg,
-      var(--mood-border) 0px,
-      var(--mood-border) 4px,
-      transparent 4px,
-      transparent 8px
-    );
-    pointer-events: none;
+  .like-count {
+    font-size: 0.75rem;
+    font-family: monospace;
+    font-weight: 600;
   }
   
-  /* Animación pixel al dar like */
-  @keyframes pixelHeart {
+  @keyframes gentlePop {
     0% { transform: scale(1); }
-    50% { transform: scale(1.3); }
+    50% { transform: scale(1.05); background: rgba(244, 194, 194, 0.5); }
     100% { transform: scale(1); }
   }
   
-  .like-btn.liked .like-icon {
-    animation: pixelHeart 0.2s steps(4);
-  }
+  .like-btn.liked { animation: gentlePop 0.3s ease; }
 </style>
