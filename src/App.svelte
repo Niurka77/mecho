@@ -27,22 +27,46 @@
   ];
 
   let selectedMood = moods[0];
-
+  // === PAGINACIÓN ===
+  let currentPage = 1;
+  const postsPerPage = 5;
+  
+  // Función para obtener posts paginados
+  $: paginatedPosts = posts.slice(
+    (currentPage - 1) * postsPerPage, 
+    currentPage * postsPerPage
+  );
+  
+  // Función para calcular total de páginas
+  $: totalPages = Math.ceil(posts.length / postsPerPage);
+  
+  // Función para cambiar de página
+  function goToPage(page) {
+    if (page >= 1 && page <= totalPages) {
+      currentPage = page;
+      // Scroll suave al feed
+      document.querySelector('.feed-container')?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }
+  
+  // Resetear a página 1 cuando llegan nuevos posts en realtime
+  function handleNewPost(payload) {
+    posts = [payload.new, ...posts];
+    updateTodayCount();
+    currentPage = 1; // Volver a la primera página para ver el nuevo post
+    if (popSound) popSound.play().catch(() => {});
+  }
   onMount(async () => {
     popSound = new Audio('/soft-pop.mp3');
     popSound.volume = 0.15;
     
     await loadPosts();
     
-    channel = supabase
+      channel = supabase
       .channel('mecho-realtime')
       .on('postgres_changes', 
         { event: 'INSERT', schema: 'public', table: 'posts' }, 
-        payload => {
-          posts = [payload.new, ...posts];
-          updateTodayCount();
-          if (popSound) popSound.play().catch(() => {});
-        }
+        payload => handleNewPost(payload)  // ← Usa la nueva función
       )
       .subscribe();
 
@@ -289,17 +313,52 @@
         </div>
       </div>
 
-      <section class="feed-container">
+        <section class="feed-container">
         {#if loading}
           <div class="loader-text">cargando memorias...</div>
         {:else if posts.length === 0}
           <div class="empty-msg">el libro está vacío.</div>
         {:else}
-          {#each posts as post (post.id)}
+          {#each paginatedPosts as post (post.id)}
             <div transition:fly={{ y: 10, duration: 400 }}>
               <Post {post} onLike={handleLike} />
             </div>
           {/each}
+          
+          <!-- Controles de Paginación -->
+          {#if totalPages > 1}
+            <div class="pagination-controls">
+              <button 
+                class="page-btn" 
+                on:click={() => goToPage(currentPage - 1)} 
+                disabled={currentPage === 1}
+                type="button"
+              >
+                ◀ anterior
+              </button>
+              
+              <div class="page-numbers">
+                {#each Array.from({ length: totalPages }, (_, i) => i + 1) as pageNum}
+                  <button 
+                    class="page-number {pageNum === currentPage ? 'active' : ''}" 
+                    on:click={() => goToPage(pageNum)}
+                    type="button"
+                  >
+                    {pageNum}
+                  </button>
+                {/each}
+              </div>
+              
+              <button 
+                class="page-btn" 
+                on:click={() => goToPage(currentPage + 1)} 
+                disabled={currentPage === totalPages}
+                type="button"
+              >
+                siguiente ▶
+              </button>
+            </div>
+          {/if}
         {/if}
       </section>
     </section>
@@ -626,5 +685,65 @@
     .input-footer { flex-direction: column; gap: 10px; align-items: stretch; }
     .actions { justify-content: space-between; }
     .mascot { width: 60px; }
+  }
+    /* === PAGINACIÓN === */
+  .pagination-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px dashed var(--blue);
+  }
+  
+  .page-btn {
+    font-family: 'VT323', monospace;
+    font-size: 1.1rem;
+    padding: 6px 16px;
+    background: var(--panel-bg);
+    border: 2px solid var(--pink);
+    border-radius: 0;
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .page-btn:hover:not(:disabled) {
+    background: var(--pink);
+    color: white;
+  }
+  
+  .page-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  
+  .page-numbers {
+    display: flex;
+    gap: 6px;
+  }
+  
+  .page-number {
+    font-family: 'VT323', monospace;
+    font-size: 1rem;
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--blue);
+    background: white;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .page-number:hover {
+    background: var(--blue);
+    color: white;
+  }
+  
+  .page-number.active {
+    background: var(--green);
+    color: white;
+    border-color: var(--green);
+    font-weight: bold;
   }
 </style>
