@@ -9,7 +9,7 @@
   }
 </script>
 
-<article class="post-card">
+<article class="post-card" style="background-color: {post.color || '#FFFFFF'}">
   <!-- Contenido mixto: texto + media juntos -->
   {#if post.text}
     <p class="post-text">{post.text}</p>
@@ -31,18 +31,18 @@
 <style>
   .post-card {
     background: #FFFFFF;
-    border-radius: 28px;
+    border-radius: 25px 30px 20px 35px;
     padding: 18px 20px;
     box-shadow: 0 6px 20px rgba(139, 154, 124, 0.12);
     display: flex;
     flex-direction: column;
     gap: 12px;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-    border: 1px solid rgba(232, 213, 183, 0.4);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    border: 2px solid rgba(232, 213, 183, 0.5);
   }
   .post-card:hover { 
-    transform: translateY(-3px); 
-    box-shadow: 0 10px 28px rgba(139, 154, 124, 0.18); 
+    transform: translateY(-4px) scale(1.01); 
+    box-shadow: 0 12px 32px rgba(139, 154, 124, 0.2); 
   }
   
   .post-text {
@@ -58,13 +58,15 @@
     border-radius: 20px;
     object-fit: cover;
     max-height: 420px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.1);
+    border: 2px solid rgba(255,255,255,0.6);
   }
   
   .post-audio {
     width: 100%;
     border-radius: 24px;
-    background: #F9F7F3;
+    background: rgba(249, 247, 243, 0.8);
+    border: 2px solid rgba(232, 213, 183, 0.4);
   }
   
   .post-time {

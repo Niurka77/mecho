@@ -1,5 +1,6 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
+  import { fade, fly } from 'svelte/transition';
   import { supabase } from './lib/supabaseClient';
   import Post from './lib/Post.svelte';
 
@@ -12,6 +13,18 @@
   let fileInputRef;
   let scrollY = 0;
   let channel;
+  
+  // Nuevo estado para colores y upload
+  let selectedColor = '#FFFFFF';
+  let isUploading = false;
+  
+  // Colores pastel disponibles
+  const pastelColors = [
+    { value: '#FFE5E5', label: 'Rosa' },    // Rosa pastel
+    { value: '#E5F3FF', label: 'Azul' },    // Azul pastel
+    { value: '#E5FFE5', label: 'Verde' },   // Verde pastel
+    { value: '#FFF9E5', label: 'Amarillo' } // Amarillo pastel
+  ];
 
   // --- CARGAR POSTS + TIEMPO REAL ---
   onMount(async () => {
@@ -67,6 +80,7 @@
       return;
     }
 
+    isUploading = true;
     let currentMediaUrl = null;
 
     // Subir archivo si existe
@@ -83,6 +97,7 @@
       if (uploadError) {
         console.error('Error subiendo:', uploadError);
         alert('No se pudo subir el archivo. Intenta de nuevo.');
+        isUploading = false;
         return;
       }
       
@@ -92,10 +107,11 @@
       currentMediaUrl = publicUrl;
     }
 
-    // Crear post mixto (texto + media en uno)
+    // Crear post mixto (texto + media + color)
     const newPostData = {
       text: textInput.trim() || null,
       media_url: currentMediaUrl || null,
+      color: selectedColor,
       type: mediaFile 
         ? (mediaFile.type.startsWith('image') ? 'image' 
           : mediaFile.type.startsWith('video') ? 'video' 
@@ -116,8 +132,11 @@
       textInput = '';
       mediaFile = null;
       mediaPreview = null;
+      selectedColor = '#FFFFFF';
       if (fileInputRef) fileInputRef.value = '';
     }
+    
+    isUploading = false;
   }
 
   // --- POSICIONES ALEATORIAS PARA BURBUJAS (fijas, no tapan contenido) ---
@@ -187,6 +206,26 @@
         class="composer-text"
       ></textarea>
       
+      <!-- Selector de colores pastel -->
+      <div class="color-selector">
+        <span class="color-label">Elige un color:</span>
+        <div class="color-options">
+          {#each pastelColors as colorOption}
+            <button
+              class="color-option {selectedColor === colorOption.value ? 'active' : ''}"
+              style="background-color: {colorOption.value}"
+              on:click={() => selectedColor = colorOption.value}
+              title={colorOption.label}
+              aria-label={`Seleccionar color ${colorOption.label}`}
+            >
+              {#if selectedColor === colorOption.value}
+                <span class="checkmark">✓</span>
+              {/if}
+            </button>
+          {/each}
+        </div>
+      </div>
+      
       <div class="composer-actions">
         <input 
           type="file" 
@@ -200,11 +239,15 @@
           📎 {mediaFile ? mediaFile.name.slice(0, 18) + (mediaFile.name.length > 18 ? '...' : '') : 'Adjuntar'}
         </label>
         <button 
-          class="btn-send" 
+          class="btn-send {isUploading ? 'uploading' : ''}" 
           on:click={sendPost} 
-          disabled={!textInput.trim() && !mediaFile}
+          disabled={!textInput.trim() && !mediaFile || isUploading}
         >
-          Enviar ✨
+          {#if isUploading}
+            Mecho está trabajando... 🐾
+          {:else}
+            Enviar ✨
+          {/if}
         </button>
       </div>
     </section>
@@ -217,7 +260,9 @@
         <div class="empty-state">Aún no hay recuerdos. ¡Sé la primera en compartir! 💫</div>
       {:else}
         {#each posts as post (post.id)}
-          <Post {post} />
+          <div transition:fly={{ y: 20, duration: 400 }} transition:fade={{ duration: 400 }}>
+            <Post {post} />
+          </div>
         {/each}
       {/if}
     </section>
@@ -231,7 +276,8 @@
   @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&family=VT323&display=swap');
 
   :root {
-    --bg: #F5F9F6;
+    --bg: #FDFBF5;
+    --bg-gradient: linear-gradient(180deg, #FDFBF5 0%, #F9F7F0 100%);
     --card: #FFFFFF;
     --green: #8B9A7C;
     --green-soft: #A8B8A0;
@@ -251,6 +297,7 @@
   
   body {
     background: var(--bg);
+    background-image: var(--bg-gradient);
     color: var(--text);
     font-family: 'Nunito', sans-serif;
     scroll-behavior: smooth;
@@ -377,7 +424,8 @@
     max-height: 220px;
     border-radius: var(--radius-md);
     object-fit: cover;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    border: 3px solid white;
   }
   .preview-audio {
     background: var(--sand);
@@ -391,21 +439,25 @@
     position: absolute;
     top: 8px;
     right: 8px;
-    background: rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.95);
     border: none;
     border-radius: 50%;
-    width: 28px;
-    height: 28px;
-    font-size: 1.3rem;
+    width: 32px;
+    height: 32px;
+    font-size: 1.4rem;
     color: var(--text);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 3px 8px rgba(0,0,0,0.1);
-    transition: background 0.2s;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    transition: all 0.2s;
   }
-  .remove-preview:hover { background: white; }
+  .remove-preview:hover { 
+    background: white; 
+    transform: scale(1.1);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+  }
 
   .composer-text {
     width: 100%;
@@ -420,8 +472,59 @@
     line-height: 1.5;
   }
   .composer-text:focus {
-    outline: 2px solid var(--pink);
+    outline: 3px solid var(--pink);
     outline-offset: 2px;
+  }
+
+  /* ===== SELECTOR DE COLORES ===== */
+  .color-selector {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  
+  .color-label {
+    font-size: 0.9rem;
+    color: var(--text-light);
+    font-weight: 600;
+  }
+  
+  .color-options {
+    display: flex;
+    gap: 10px;
+  }
+  
+  .color-option {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 3px solid white;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.15);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .color-option:hover {
+    transform: scale(1.15);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+  }
+  
+  .color-option.active {
+    border-color: var(--green);
+    transform: scale(1.1);
+    box-shadow: 0 0 0 3px rgba(139, 154, 124, 0.3);
+  }
+  
+  .checkmark {
+    color: var(--green);
+    font-weight: bold;
+    font-size: 1.1rem;
+    text-shadow: 0 1px 2px rgba(255,255,255,0.8);
   }
 
   .composer-actions {
@@ -442,13 +545,17 @@
     font-weight: 600;
     font-size: 0.95rem;
     cursor: pointer;
-    transition: background 0.2s, transform 0.1s;
+    transition: all 0.2s;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 200px;
   }
-  .btn-attach:hover { background: #8FB5CC; transform: translateY(-1px); }
+  .btn-attach:hover { 
+    background: #8FB5CC; 
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(168, 195, 214, 0.3);
+  }
 
   .btn-send {
     background: var(--green);
@@ -460,18 +567,27 @@
     font-weight: 700;
     font-size: 1.05rem;
     cursor: pointer;
-    transition: transform 0.15s, opacity 0.2s, background 0.2s;
-    box-shadow: 0 4px 12px rgba(139, 154, 124, 0.2);
+    transition: all 0.2s;
+    box-shadow: 0 4px 12px rgba(139, 154, 124, 0.25);
   }
   .btn-send:hover:not(:disabled) { 
     transform: translateY(-2px); 
     background: #7A8A6C;
-    box-shadow: 0 6px 16px rgba(139, 154, 124, 0.28);
+    box-shadow: 0 8px 20px rgba(139, 154, 124, 0.35);
   }
   .btn-send:disabled { 
-    opacity: 0.6; 
+    opacity: 0.65; 
     cursor: not-allowed; 
     transform: none;
+  }
+  .btn-send.uploading {
+    background: var(--sand);
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  
+  @keyframes pulse {
+    0%, 100% { opacity: 0.65; }
+    50% { opacity: 1; }
   }
 
   /* ===== FEED DE POSTS ===== */
@@ -485,9 +601,9 @@
     color: var(--text-light);
     padding: 24px;
     font-size: 1.05rem;
-    background: rgba(255,255,255,0.6);
+    background: rgba(255,255,255,0.7);
     border-radius: var(--radius-md);
-    border: 1px dashed var(--green-soft);
+    border: 2px dashed var(--green-soft);
   }
 
   /* ===== MASCOTA FLOTANTE ===== */
@@ -513,5 +629,6 @@
     .btn-attach, .btn-send { width: 100%; text-align: center; }
     .mew-bubble { width: 70px; height: 85px; top: 10%; left: 8px; }
     .bubble-core { font-size: 1.6rem; }
+    .color-selector { justify-content: center; }
   }
 </style>
