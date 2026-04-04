@@ -260,7 +260,7 @@
         <div class="empty-state">Aún no hay recuerdos. ¡Sé la primera en compartir! 💫</div>
       {:else}
         {#each posts as post (post.id)}
-          <div transition:fly={{ y: 20, duration: 400 }} transition:fade={{ duration: 400 }}>
+          <div transition:fly={{ y: 20, duration: 400, opacity: 0 }}>
             <Post {post} />
           </div>
         {/each}
