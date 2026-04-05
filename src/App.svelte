@@ -368,7 +368,7 @@ async function saveEdit() {
 <textarea 
   bind:value={textInput} 
   bind:this={textareaRef}
-  placeholder={editingPost ? "editando mensaje..." : "escribe algo aquí... (máx. {MAX_CHARS} caracteres)"}
+  placeholder={editingPost ? "editando mensaje..." : "escribe algo aquí.. :D"}
   rows="4"
   class="retro-textarea {editingPost ? 'editing-mode' : ''}"
   maxlength={MAX_CHARS}
@@ -439,18 +439,20 @@ async function saveEdit() {
             </div>
           {/if}
           
-          {#if mediaPreview && !editingPost}
-            <div class="mini-preview">
-              {#if mediaFile?.type?.startsWith('image')}
-                <img src={mediaPreview} alt="vista previa" />
-              {:else if mediaFile?.type?.startsWith('video')}
-                <video src={mediaPreview} muted />
-              {:else}
-                <span>📄 {mediaFile.name.slice(0, 20)}...</span>
-              {/if}
-              <button on:click={() => { mediaPreview=null; mediaFile=null; if(fileInputRef) fileInputRef.value=''; }} type="button">✕</button>
-            </div>
-          {/if}
+         {#if mediaPreview && !editingPost}
+  <div class="mini-preview">
+    {#if mediaFile?.type?.startsWith('image')}
+      <img src={mediaPreview} alt="vista previa" />
+    {:else if mediaFile?.type?.startsWith('video')}
+      <video src={mediaPreview} muted>
+        <track kind="captions" />
+      </video>
+    {:else}
+      <span>📄 {mediaFile.name.slice(0, 20)}...</span>
+    {/if}
+    <button on:click={() => { mediaPreview=null; mediaFile=null; if(fileInputRef) fileInputRef.value=''; }} type="button">✕</button>
+  </div>
+{/if}
         </div>
       </div>
 
