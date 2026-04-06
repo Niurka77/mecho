@@ -212,40 +212,38 @@ let originalTextInput = ''; // Para guardar el texto original
     }
   }
 
-// 🟡 Editar post - CORREGIDO
+// 🟡 Editar post - CORREGIDO FINAL
 function startEdit(post) {
   editingPost = post;
-  editText = post.text || '';
-  originalTextInput = textInput; // Guardar texto actual
-  textInput = editText; // Cargar texto del post en el textarea
+  originalTextInput = textInput; // Guardar texto actual del formulario
+  textInput = post.text || '';   // Cargar texto del post en el textarea
   textareaRef?.focus();
 }
 
 async function saveEdit() {
-  if (!editText.trim() || !editingPost) return;
+  if (!textInput.trim() || !editingPost) return;
   
   try {
     const { error } = await supabase
       .from('posts')
-      .update({ text: editText })
+      .update({ text: textInput })
       .eq('id', editingPost.id);
     
     if (error) throw error;
     
     const index = posts.findIndex(p => p.id === editingPost.id);
     if (index !== -1) {
-      posts[index].text = editText;
+      posts[index].text = textInput;
       posts = [...posts];
     }
-    cancelEdit(); // Usar cancelEdit para limpiar
+    cancelEdit();
   } catch (err) {
     alert('❌ Error al editar: ' + err.message);
   }
 }
 
- function cancelEdit() {
+function cancelEdit() {
   editingPost = null;
-  editText = '';
   textInput = originalTextInput; // Restaurar texto original
   originalTextInput = '';
 }
