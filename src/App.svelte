@@ -19,7 +19,9 @@
   let showConfetti = false;
   let todayCount = 0;
   let popSound;
-  
+  // === 🟢 NUEVO: Sistema de identidad ===
+  let currentUser = "";
+  let showNameSetup = false;
   // 🔴 Límite de caracteres
   const MAX_CHARS = 500;
   
@@ -75,7 +77,11 @@ let originalTextInput = ''; // Para guardar el texto original
   onMount(async () => {
     popSound = new Audio('/soft-pop.mp3');
     popSound.volume = 0.15;
-    
+    // 🟢 Cargar nickname desde LocalStorage
+    currentUser = localStorage.getItem('mecho_user') || "";
+    if (!currentUser) {
+      showNameSetup = true; // Mostrar modal de registro
+    }
     await loadPosts();
     
     channel = supabase
@@ -101,7 +107,29 @@ let originalTextInput = ''; // Para guardar el texto original
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   });
+// 🟢 Guardar nickname
+  function setUserNickname(nombre) {
+    const nombreLimpio = nombre.trim().slice(0, 20);
+    if (nombreLimpio) {
+      localStorage.setItem('mecho_user', nombreLimpio);
+      currentUser = nombreLimpio;
+      showNameSetup = false;
+      // Actualizar el campo authorName si está vacío
+      if (!authorName) authorName = nombreLimpio;
+    }
+  }
 
+  // 🟢 Cerrar sesión (útil para pruebas)
+  function logout() {
+    localStorage.removeItem('mecho_user');
+    currentUser = "";
+    showNameSetup = true;
+  }
+
+  // 🟢 Verificar si el usuario actual puede editar/borrar
+  function puedeModificar(post) {
+    return currentUser && post.author_name === currentUser;
+  }
   onDestroy(() => {
     if (channel) supabase.removeChannel(channel);
     window.removeEventListener('scroll', handleScroll);
@@ -330,7 +358,33 @@ async function saveEdit() {
       ></div>
     {/each}
   </div>
-
+{#if showNameSetup}
+  <div class="setup-overlay">
+    <div class="setup-modal" transition:fly={{ y: 20, duration: 300 }}>
+      <h2>👋 ¡Hola!</h2>
+      <p>Elige tu nombre para firmar tus mensajes:</p>
+      <div class="name-input-group">
+        <input 
+          type="text" 
+          bind:value={authorName}
+          placeholder="Ej: Seli, Dayna, Kaili..." 
+          class="retro-input-name setup-input"
+          maxlength="20"
+          on:keydown={(e) => e.key === 'Enter' && setUserNickname(authorName)}
+        />
+        <button 
+          class="btn-retro-send" 
+          on:click={() => setUserNickname(authorName)}
+          disabled={!authorName.trim()}
+          type="button"
+        >
+          ¡Listo! ✨
+        </button>
+      </div>
+      <p class="setup-hint">💡 Tu nombre se guarda solo en este dispositivo</p>
+    </div>
+  </div>
+{/if}
   <main class="content">
     <header class="retro-header">
       <h1 class="logo">GUESTBOOK</h1>
@@ -481,17 +535,18 @@ async function saveEdit() {
             {/if}
           </div>
         {:else}
-          {#each paginatedPosts as post (post.id)}
-            <div transition:fly={{ y: 10, duration: 400 }}>
-              <Post 
-                {post} 
-                onLike={handleLike} 
-                onEdit={startEdit} 
-                onDelete={deletePost}
-                isEditing={editingPost?.id === post.id}
-              />
-            </div>
-          {/each}
+        {#each paginatedPosts as post (post.id)}
+  <div transition:fly={{ y: 10, duration: 400 }}>
+    <Post 
+      {post} 
+      onLike={handleLike} 
+      onEdit={startEdit} 
+      onDelete={deletePost}
+      isEditing={editingPost?.id === post.id}
+      currentUser={currentUser}  {!-- 🟢 AGREGAR ESTA LÍNEA --}
+    />
+  </div>
+{/each}
           
           {#if totalPages > 1}
             <div class="pagination-controls">
@@ -543,7 +598,60 @@ async function saveEdit() {
     --panel-bg: rgba(255, 255, 255, 0.92);
     --text: #333;
   }
+/* 🟢 Modal de registro */
+.setup-overlay {
+  position: fixed;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(3px);
+}
 
+.setup-modal {
+  background: white;
+  padding: 24px;
+  border: 3px double var(--pink);
+  border-radius: 8px;
+  max-width: 320px;
+  text-align: center;
+  box-shadow: 8px 8px 0 rgba(212, 165, 165, 0.3);
+}
+
+.setup-modal h2 {
+  font-family: 'VT323', monospace;
+  color: var(--pink);
+  margin-bottom: 12px;
+}
+
+.setup-modal p {
+  font-family: 'Nunito', sans-serif;
+  margin-bottom: 16px;
+  color: #555;
+}
+
+.name-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.setup-input {
+  text-align: center;
+  font-size: 1.3rem;
+  padding: 8px;
+  border: 2px solid var(--blue);
+  border-radius: 4px;
+}
+
+.setup-hint {
+  font-size: 0.85rem;
+  color: #888;
+  font-style: italic;
+}
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   .bg-image {
@@ -814,6 +922,29 @@ async function saveEdit() {
     outline: none;
     transition: border-color 0.2s;
   }
+  /* 🔧 Fix: texto visible en inputs */
+.search-input,
+input[type="text"],
+input[type="search"],
+textarea {
+  color: #1a1a1a !important;
+  -webkit-text-fill-color: #1a1a1a !important; /* Para Safari */
+}
+
+.search-input::placeholder,
+input::placeholder,
+textarea::placeholder {
+  color: #666 !important;
+  opacity: 1 !important;
+}
+
+/* Asegurar que el input de nombre también tenga contraste */
+.retro-input-name {
+  color: #333 !important; /* Cambié var(--blue) por gris oscuro */
+}
+.retro-input-name::placeholder {
+  color: #999 !important;
+}
   .search-input:focus { border-color: var(--pink); }
   .search-clear {
     position: absolute;

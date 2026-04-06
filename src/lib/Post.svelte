@@ -4,6 +4,7 @@
   export let onEdit = () => {};
   export let onDelete = () => {};
   export let isEditing = false;
+  export let currentUser = ""; // 🟢 NUEVO: quien está usando la app
   
   let liked = false;
   let localLikes = post.likes || 0;
@@ -54,19 +55,23 @@
     {/if}
   </div>
 
-  <div class="entry-footer">
-    <button class="like-trigger {liked ? 'active' : ''}" on:click|preventDefault={handleLike} type="button">
-      [{localLikes}] ❤
-    </button>
-    
-    <!-- 🔴🟡 Botones de acción (solo visibles si no se está editando) -->
-    {#if !isEditing}
-      <div class="entry-actions">
+ 
+<!-- En el footer, modifica esta sección: -->
+<div class="entry-footer">
+  <button class="like-trigger {liked ? 'active' : ''}" on:click|preventDefault={handleLike} type="button">
+    [{localLikes}] ❤
+  </button>
+  
+  {#if !isEditing}
+    <div class="entry-actions">
+      <!-- 🟢 Solo mostrar editar/borrar si es el autor -->
+      {#if currentUser && post.author_name === currentUser}
         <button class="action-btn edit" on:click={() => onEdit(post)} type="button" title="Editar">✏️</button>
         <button class="action-btn delete" on:click={() => onDelete(post.id)} type="button" title="Eliminar">🗑️</button>
-      </div>
-    {/if}
-  </div>
+      {/if}
+    </div>
+  {/if}
+</div>
 </article>
 
 <style>
