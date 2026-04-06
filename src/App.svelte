@@ -403,7 +403,7 @@ function cancelEdit() {
     <section class="main-panel">
       <div class="input-window">
         <div class="window-title-bar">
-          <span>nuevo_mensaje.txt</span>
+          <span>mensajitos</span>
           <div class="window-controls"><div></div><div></div></div>
         </div>
         
