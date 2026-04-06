@@ -537,14 +537,14 @@ async function saveEdit() {
         {:else}
         {#each paginatedPosts as post (post.id)}
   <div transition:fly={{ y: 10, duration: 400 }}>
-    <Post 
-      {post} 
-      onLike={handleLike} 
-      onEdit={startEdit} 
-      onDelete={deletePost}
-      isEditing={editingPost?.id === post.id}
-      currentUser={currentUser}  {!-- 🟢 AGREGAR ESTA LÍNEA --}
-    />
+ <Post 
+  {post} 
+  onLike={handleLike} 
+  onEdit={startEdit} 
+  onDelete={deletePost}
+  isEditing={editingPost?.id === post.id}
+  currentUser={currentUser}
+/>
   </div>
 {/each}
           
