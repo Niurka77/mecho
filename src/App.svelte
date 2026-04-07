@@ -105,31 +105,24 @@
     };
   });
 
-  // 🟢 GUARDAR NOMBRE
-  function saveUserName(nombre) {
-    const nombreLimpio = nombre.trim().slice(0, 20);
-    if (nombreLimpio) {
-      localStorage.setItem('mecho_user', nombreLimpio);
-      currentUser = nombreLimpio;
-      showNameSetup = false;
-      tempNameInput = '';
-    }
+  // 🟢 GUARDAR NOMBRE (SOLO LA PRIMERA VEZ)
+function saveUserName(nombre) {
+  // Si ya tiene usuario, NO permitir cambiar
+  if (currentUser) {
+    alert('⚠️ Ya estás registrado como ' + currentUser + '. No puedes cambiar de nombre.');
+    showNameSetup = false;
+    return;
   }
+  
+  const nombreLimpio = nombre.trim().slice(0, 20);
+  if (nombreLimpio) {
+    localStorage.setItem('mecho_user', nombreLimpio);
+    currentUser = nombreLimpio;
+    showNameSetup = false;
+    tempNameInput = '';
+  }
+}
 
-  // 🟢 CAMBIAR NOMBRE
-  function changeUserName() {
-    tempNameInput = currentUser;
-    showNameSetup = true;
-  }
-
-  // 🟢 CERRAR SESIÓN
-  function logout() {
-    if (confirm('¿Quieres cambiar de nombre?')) {
-      localStorage.removeItem('mecho_user');
-      currentUser = "";
-      showNameSetup = true;
-    }
-  }
 
   // 🛡️ SEGURIDAD: Solo permite editar si el nombre Y la huella digital coinciden
   function puedeModificar(post) {
@@ -421,16 +414,13 @@
         </div>
         
         <div class="window-content">
-          {#if currentUser}
-            <div class="current-user-display">
-              <span class="user-label">👤</span>
-              <span class="user-name">{currentUser}</span>
-              <div class="user-actions">
-                <button class="btn-change-name" on:click={changeUserName} type="button" title="Cambiar nombre">✏️</button>
-                <button class="btn-logout" on:click={logout} type="button" title="Cerrar sesión">✕</button>
-              </div>
-            </div>
-          {/if}
+        {#if currentUser}
+  <div class="current-user-display">
+    <span class="user-label">👤</span>
+    <span class="user-name">{currentUser}</span>
+    <!-- 🚫 SIN BOTONES PARA CAMBIAR NOMBRE -->
+  </div>
+{/if}
           
           <textarea 
             bind:value={textInput} 
