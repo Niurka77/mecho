@@ -15,14 +15,14 @@
   let channel;
   let isUploading = false;
   let uploadProgress = 0;
-  let showConfetti = false;
   let todayCount = 0;
   let popSound;
   
-  // === 🟢 SISTEMA DE IDENTIDAD SIMPLIFICADO ===
+  // === 🟢 SISTEMA DE IDENTIDAD INVISIBLE ===
   let currentUser = "";
   let showNameSetup = false;
-  let nameInput = ''; // Solo para el modal
+  let tempNameInput = '';
+  let deviceId = ''; // Huella digital del navegador
   
   const MAX_CHARS = 500;
   
@@ -36,7 +36,6 @@
   let selectedMood = moods[0];
   let searchTerm = '';
   let editingPost = null;
-  let editText = '';
   let originalTextInput = '';
   
   // === PAGINACIÓN ===
@@ -73,7 +72,14 @@
     popSound = new Audio('/soft-pop.mp3');
     popSound.volume = 0.15;
     
-    // 🟢 VERIFICAR SI YA TIENE NOMBRE GUARDADO
+    // 1. Generar o recuperar la Huella Digital (Invisible)
+    deviceId = localStorage.getItem('mecho_device_id');
+    if (!deviceId) {
+      deviceId = crypto.randomUUID(); // Genera ID único
+      localStorage.setItem('mecho_device_id', deviceId);
+    }
+
+    // 2. Verificar si ya tiene nombre guardado
     const savedName = localStorage.getItem('mecho_user');
     if (savedName && savedName.trim() !== '') {
       currentUser = savedName;
@@ -94,38 +100,42 @@
 
     window.addEventListener('scroll', handleScroll);
     
-    const handleBeforeUnload = (e) => {
-      if (textInput.trim()) {
-        e.preventDefault();
-        e.returnValue = '';
-      }
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    
     return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('scroll', handleScroll);
     };
   });
 
-  // 🟢 GUARDAR NOMBRE - Se llama solo una vez
-  function setUserNickname(nombre) {
+  // 🟢 GUARDAR NOMBRE
+  function saveUserName(nombre) {
     const nombreLimpio = nombre.trim().slice(0, 20);
     if (nombreLimpio) {
       localStorage.setItem('mecho_user', nombreLimpio);
       currentUser = nombreLimpio;
       showNameSetup = false;
+      tempNameInput = '';
     }
   }
 
-  // 🟢 Cerrar sesión (útil para pruebas)
-  function logout() {
-    localStorage.removeItem('mecho_user');
-    currentUser = "";
+  // 🟢 CAMBIAR NOMBRE
+  function changeUserName() {
+    tempNameInput = currentUser;
     showNameSetup = true;
   }
 
+  // 🟢 CERRAR SESIÓN
+  function logout() {
+    if (confirm('¿Quieres cambiar de nombre?')) {
+      localStorage.removeItem('mecho_user');
+      currentUser = "";
+      showNameSetup = true;
+    }
+  }
+
+  // 🛡️ SEGURIDAD: Solo permite editar si el nombre Y la huella digital coinciden
   function puedeModificar(post) {
-    return currentUser && post.author_name === currentUser;
+    return currentUser && 
+           post.author_name === currentUser && 
+           post.device_id === deviceId; 
   }
   
   onDestroy(() => {
@@ -247,7 +257,6 @@
       return;
     }
     
-    // 🟢 VERIFICAR QUE TENGA NOMBRE
     if (!currentUser) {
       alert('👤 Por favor, escribe tu nombre primero');
       showNameSetup = true;
@@ -286,11 +295,12 @@
 
       const newPostData = {
         text: textInput.trim() || null,
-        author_name: currentUser, // 🟢 USAR currentUser (el guardado)
+        author_name: currentUser,
         media_url: currentMediaUrl,
         mood_color: selectedMood.color,
         type: postType,
-        likes: 0
+        likes: 0,
+        device_id: deviceId // 🛡️ GUARDAMOS LA HUELLA DIGITAL
       };
 
       const { error: dbError } = await supabase
@@ -299,7 +309,6 @@
       
       if (dbError) throw dbError;
 
-      // Limpiar formulario
       textInput = ''; 
       mediaFile = null; 
       mediaPreview = null;
@@ -307,7 +316,7 @@
       if (fileInputRef) fileInputRef.value = '';
       
     } catch (error) {
-      console.error('Error detallado:', error);
+      console.error('Error:', error);
       alert('❌ Error al guardar: ' + error.message);
     } finally {
       isUploading = false;
@@ -355,27 +364,31 @@
   <div class="setup-overlay">
     <div class="setup-modal" transition:fly={{ y: 20, duration: 300 }}>
       <h2>👋 ¡Hola!</h2>
-      <p>Elige tu nombre para firmar tus mensajes:</p>
+      <p>{currentUser ? 'Cambia tu nombre:' : 'Elige tu nombre para firmar tus mensajes:'}</p>
       <div class="name-input-group">
         <input 
           type="text" 
-          bind:value={nameInput}
-          placeholder="Ej: Seli, Dayna, Kaili..." 
+          bind:value={tempNameInput}
+          placeholder="Ej: Seli, Dayna, Mecho..." 
           class="retro-input-name setup-input"
           maxlength="20"
-          on:keydown={(e) => e.key === 'Enter' && nameInput.trim() && setUserNickname(nameInput)}
+          on:keydown={(e) => e.key === 'Enter' && tempNameInput.trim() && saveUserName(tempNameInput)}
           autofocus
         />
         <button 
           class="btn-retro-send" 
-          on:click={() => nameInput.trim() && setUserNickname(nameInput)}
-          disabled={!nameInput.trim()}
+          on:click={() => tempNameInput.trim() && saveUserName(tempNameInput)}
+          disabled={!tempNameInput.trim()}
           type="button"
         >
-          ¡Listo! ✨
+          {currentUser ? 'Actualizar' : '¡Listo!'} ✨
         </button>
       </div>
-      <p class="setup-hint">💡 Tu nombre se guarda en este dispositivo</p>
+      {#if currentUser}
+        <button class="btn-cancel-setup" on:click={() => showNameSetup = false} type="button">
+          Cancelar
+        </button>
+      {/if}
     </div>
   </div>
 {/if}
@@ -408,12 +421,14 @@
         </div>
         
         <div class="window-content">
-          <!-- 🟢 MOSTRAR NOMBRE ACTUAL (solo lectura) -->
           {#if currentUser}
             <div class="current-user-display">
-              <span class="user-label">👤 Firmado como:</span>
+              <span class="user-label">👤</span>
               <span class="user-name">{currentUser}</span>
-              <button class="btn-logout" on:click={logout} type="button" title="Cambiar nombre">✕</button>
+              <div class="user-actions">
+                <button class="btn-change-name" on:click={changeUserName} type="button" title="Cambiar nombre">✏️</button>
+                <button class="btn-logout" on:click={logout} type="button" title="Cerrar sesión">✕</button>
+              </div>
             </div>
           {/if}
           
@@ -472,7 +487,7 @@
                     {#if uploadProgress > 0}
                       {uploadProgress}%
                     {:else}
-                      ⏳ Subiendo...
+                      ⏳
                     {/if}
                   {:else}
                     ENVIAR
@@ -485,7 +500,6 @@
           {#if isUploading && mediaFile}
             <div class="upload-progress">
               <div class="progress-bar" style="width: {uploadProgress || 30}%"></div>
-              <span>{uploadProgress || '⏳'}%</span>
             </div>
           {/if}
           
@@ -597,20 +611,21 @@
   .setup-overlay {
     position: fixed;
     top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,0.4);
+    background: rgba(0,0,0,0.5);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 1000;
-    backdrop-filter: blur(3px);
+    backdrop-filter: blur(4px);
   }
 
   .setup-modal {
     background: white;
-    padding: 24px;
+    padding: 28px;
     border: 3px double var(--pink);
-    border-radius: 8px;
-    max-width: 320px;
+    border-radius: 12px;
+    max-width: 340px;
+    width: 90%;
     text-align: center;
     box-shadow: 8px 8px 0 rgba(212, 165, 165, 0.3);
   }
@@ -619,34 +634,43 @@
     font-family: 'VT323', monospace;
     color: var(--pink);
     margin-bottom: 12px;
+    font-size: 2rem;
   }
 
   .setup-modal p {
     font-family: 'Nunito', sans-serif;
     margin-bottom: 16px;
     color: #555;
+    font-size: 0.95rem;
   }
 
   .name-input-group {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    margin-bottom: 12px;
+    gap: 12px;
+    margin-bottom: 8px;
   }
 
   .setup-input {
     text-align: center;
     font-size: 1.3rem;
-    padding: 8px;
+    padding: 10px;
     border: 2px solid var(--blue);
-    border-radius: 4px;
+    border-radius: 6px;
+    font-family: 'Nunito', sans-serif;
   }
 
-  .setup-hint {
-    font-size: 0.85rem;
-    color: #888;
-    font-style: italic;
+  .btn-cancel-setup {
+    margin-top: 12px;
+    background: none;
+    border: none;
+    color: #999;
+    cursor: pointer;
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.9rem;
+    text-decoration: underline;
   }
+  .btn-cancel-setup:hover { color: var(--pink); }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -786,7 +810,12 @@
     flex: 1;
   }
 
-  .btn-logout {
+  .user-actions {
+    display: flex;
+    gap: 4px;
+  }
+
+  .btn-change-name, .btn-logout {
     background: none;
     border: none;
     color: #999;
@@ -797,6 +826,11 @@
     transition: all 0.2s;
   }
 
+  .btn-change-name:hover {
+    background: rgba(122, 138, 108, 0.2);
+    color: var(--green);
+  }
+  
   .btn-logout:hover {
     background: rgba(212, 165, 165, 0.2);
     color: var(--pink);
