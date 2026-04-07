@@ -7,7 +7,6 @@
   let posts = [];
   let loading = true;
   let textInput = '';
-  let authorName = '';
   let mediaFile = null;
   let mediaPreview = null;
   let fileInputRef;
@@ -15,14 +14,16 @@
   let scrollY = 0;
   let channel;
   let isUploading = false;
-  let uploadProgress = 0; // 🟡 Progreso de subida
+  let uploadProgress = 0;
   let showConfetti = false;
   let todayCount = 0;
   let popSound;
-  // === 🟢 NUEVO: Sistema de identidad ===
+  
+  // === 🟢 SISTEMA DE IDENTIDAD SIMPLIFICADO ===
   let currentUser = "";
   let showNameSetup = false;
-  // 🔴 Límite de caracteres
+  let nameInput = ''; // Solo para el modal
+  
   const MAX_CHARS = 500;
   
   const moods = [
@@ -33,26 +34,20 @@
   ];
 
   let selectedMood = moods[0];
-  
-  // 🟡 Búsqueda
   let searchTerm = '';
-  
-  // 🟡 Edición - CORREGIDO
-let editingPost = null;
-let editText = '';
-let originalTextInput = ''; // Para guardar el texto original
+  let editingPost = null;
+  let editText = '';
+  let originalTextInput = '';
   
   // === PAGINACIÓN ===
   let currentPage = 1;
   const postsPerPage = 5;
   
-  // Posts filtrados por búsqueda
   $: filteredPosts = posts.filter(post => 
     (post.text?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
     (post.author_name?.toLowerCase() || '').includes(searchTerm.toLowerCase())
   );
   
-  // Paginación sobre posts filtrados
   $: paginatedPosts = filteredPosts.slice(
     (currentPage - 1) * postsPerPage, 
     currentPage * postsPerPage
@@ -77,11 +72,16 @@ let originalTextInput = ''; // Para guardar el texto original
   onMount(async () => {
     popSound = new Audio('/soft-pop.mp3');
     popSound.volume = 0.15;
-    // 🟢 Cargar nickname desde LocalStorage
-    currentUser = localStorage.getItem('mecho_user') || "";
-    if (!currentUser) {
-      showNameSetup = true; // Mostrar modal de registro
+    
+    // 🟢 VERIFICAR SI YA TIENE NOMBRE GUARDADO
+    const savedName = localStorage.getItem('mecho_user');
+    if (savedName && savedName.trim() !== '') {
+      currentUser = savedName;
+      showNameSetup = false;
+    } else {
+      showNameSetup = true;
     }
+    
     await loadPosts();
     
     channel = supabase
@@ -94,7 +94,6 @@ let originalTextInput = ''; // Para guardar el texto original
 
     window.addEventListener('scroll', handleScroll);
     
-    // 🟢 Confirmación al salir si hay texto sin enviar
     const handleBeforeUnload = (e) => {
       if (textInput.trim()) {
         e.preventDefault();
@@ -107,15 +106,14 @@ let originalTextInput = ''; // Para guardar el texto original
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   });
-// 🟢 Guardar nickname
+
+  // 🟢 GUARDAR NOMBRE - Se llama solo una vez
   function setUserNickname(nombre) {
     const nombreLimpio = nombre.trim().slice(0, 20);
     if (nombreLimpio) {
       localStorage.setItem('mecho_user', nombreLimpio);
       currentUser = nombreLimpio;
       showNameSetup = false;
-      // Actualizar el campo authorName si está vacío
-      if (!authorName) authorName = nombreLimpio;
     }
   }
 
@@ -126,10 +124,10 @@ let originalTextInput = ''; // Para guardar el texto original
     showNameSetup = true;
   }
 
-  // 🟢 Verificar si el usuario actual puede editar/borrar
   function puedeModificar(post) {
     return currentUser && post.author_name === currentUser;
   }
+  
   onDestroy(() => {
     if (channel) supabase.removeChannel(channel);
     window.removeEventListener('scroll', handleScroll);
@@ -161,7 +159,6 @@ let originalTextInput = ''; // Para guardar el texto original
     todayCount = filteredPosts.filter(p => new Date(p.created_at).toDateString() === today).length;
   }
 
-  // 🔴 Validación de archivos mejorada
   function handleFileChange(event) {
     const file = event.target.files[0];
     if (!file) {
@@ -170,14 +167,12 @@ let originalTextInput = ''; // Para guardar el texto original
       return;
     }
     
-    // Validar tamaño (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       alert('⚠️ El archivo es muy grande. Máximo 5MB');
       event.target.value = '';
       return;
     }
     
-    // Validar tipo de archivo
     const validTypes = [
       'image/jpeg', 'image/png', 'image/gif', 'image/webp',
       'video/mp4', 'video/webm',
@@ -195,7 +190,6 @@ let originalTextInput = ''; // Para guardar el texto original
     reader.readAsDataURL(mediaFile);
   }
 
-  // 🔴 Eliminar post
   async function deletePost(postId) {
     if (!confirm('¿Eliminar este mensaje permanentemente?')) return;
     
@@ -212,49 +206,51 @@ let originalTextInput = ''; // Para guardar el texto original
     }
   }
 
-// 🟡 Editar post - CORREGIDO FINAL
-function startEdit(post) {
-  editingPost = post;
-  originalTextInput = textInput; // Guardar texto actual del formulario
-  textInput = post.text || '';   // Cargar texto del post en el textarea
-  textareaRef?.focus();
-}
-
-async function saveEdit() {
-  if (!textInput.trim() || !editingPost) return;
-  
-  try {
-    const { error } = await supabase
-      .from('posts')
-      .update({ text: textInput })
-      .eq('id', editingPost.id);
-    
-    if (error) throw error;
-    
-    const index = posts.findIndex(p => p.id === editingPost.id);
-    if (index !== -1) {
-      posts[index].text = textInput;
-      posts = [...posts];
-    }
-    cancelEdit();
-  } catch (err) {
-    alert('❌ Error al editar: ' + err.message);
+  function startEdit(post) {
+    editingPost = post;
+    originalTextInput = textInput;
+    textInput = post.text || '';
+    textareaRef?.focus();
   }
-}
 
-function cancelEdit() {
-  editingPost = null;
-  textInput = originalTextInput; // Restaurar texto original
-  originalTextInput = '';
-}
+  async function saveEdit() {
+    if (!textInput.trim() || !editingPost) return;
+    
+    try {
+      const { error } = await supabase
+        .from('posts')
+        .update({ text: textInput })
+        .eq('id', editingPost.id);
+      
+      if (error) throw error;
+      
+      const index = posts.findIndex(p => p.id === editingPost.id);
+      if (index !== -1) {
+        posts[index].text = textInput;
+        posts = [...posts];
+      }
+      cancelEdit();
+    } catch (err) {
+      alert('❌ Error al editar: ' + err.message);
+    }
+  }
+
+  function cancelEdit() {
+    editingPost = null;
+    textInput = originalTextInput;
+    originalTextInput = '';
+  }
 
   async function sendPost() {
     if (!textInput.trim() && !mediaFile) {
       alert('✍️ Escribe algo o adjunta un archivo');
       return;
     }
-    if (!authorName.trim()) {
-      alert('👤 Por favor, escribe tu nombre');
+    
+    // 🟢 VERIFICAR QUE TENGA NOMBRE
+    if (!currentUser) {
+      alert('👤 Por favor, escribe tu nombre primero');
+      showNameSetup = true;
       return;
     }
 
@@ -269,7 +265,6 @@ function cancelEdit() {
         const datePath = new Date().toISOString().split('T')[0];
         const filePath = `posts/${datePath}/${safeName}`;
 
-        // 🟡 Upload con progreso (simulado para compatibilidad)
         const { error: uploadError } = await supabase.storage
           .from('mecho-media')
           .upload(filePath, mediaFile, { cacheControl: '3600' });
@@ -291,7 +286,7 @@ function cancelEdit() {
 
       const newPostData = {
         text: textInput.trim() || null,
-        author_name: authorName.trim(),
+        author_name: currentUser, // 🟢 USAR currentUser (el guardado)
         media_url: currentMediaUrl,
         mood_color: selectedMood.color,
         type: postType,
@@ -306,7 +301,6 @@ function cancelEdit() {
 
       // Limpiar formulario
       textInput = ''; 
-      authorName = '';
       mediaFile = null; 
       mediaPreview = null;
       selectedMood = moods[0];
@@ -356,6 +350,7 @@ function cancelEdit() {
       ></div>
     {/each}
   </div>
+
 {#if showNameSetup}
   <div class="setup-overlay">
     <div class="setup-modal" transition:fly={{ y: 20, duration: 300 }}>
@@ -364,25 +359,27 @@ function cancelEdit() {
       <div class="name-input-group">
         <input 
           type="text" 
-          bind:value={authorName}
+          bind:value={nameInput}
           placeholder="Ej: Seli, Dayna, Kaili..." 
           class="retro-input-name setup-input"
           maxlength="20"
-          on:keydown={(e) => e.key === 'Enter' && setUserNickname(authorName)}
+          on:keydown={(e) => e.key === 'Enter' && nameInput.trim() && setUserNickname(nameInput)}
+          autofocus
         />
         <button 
           class="btn-retro-send" 
-          on:click={() => setUserNickname(authorName)}
-          disabled={!authorName.trim()}
+          on:click={() => nameInput.trim() && setUserNickname(nameInput)}
+          disabled={!nameInput.trim()}
           type="button"
         >
           ¡Listo! ✨
         </button>
       </div>
-      <p class="setup-hint">💡 Tu nombre se guarda solo en este dispositivo</p>
+      <p class="setup-hint">💡 Tu nombre se guarda en este dispositivo</p>
     </div>
   </div>
 {/if}
+
   <main class="content">
     <header class="retro-header">
       <h1 class="logo">GUESTBOOK</h1>
@@ -392,8 +389,11 @@ function cancelEdit() {
     <div class="mascot-container">
       <img src="/mecho.png" alt="Mecho" class="mascot" />
       <div class="mascot-tooltip">
-        {#if todayCount > 0}
-          ¡{todayCount} registro{todayCount > 1 ? 's' : ''} hoy! 💖
+        {#if currentUser}
+          <div>¡Hola {currentUser}! 💖</div>
+          {#if todayCount > 0}
+            <div>{todayCount} registro{todayCount > 1 ? 's' : ''} hoy</div>
+          {/if}
         {:else}
           ¡Cuéntame tu día! 🌸
         {/if}
@@ -408,25 +408,24 @@ function cancelEdit() {
         </div>
         
         <div class="window-content">
-          <input 
-            type="text" 
-            bind:value={authorName}
-            placeholder="tu nombre..." 
-            class="retro-input-name"
-            maxlength="20"
-          />
+          <!-- 🟢 MOSTRAR NOMBRE ACTUAL (solo lectura) -->
+          {#if currentUser}
+            <div class="current-user-display">
+              <span class="user-label">👤 Firmado como:</span>
+              <span class="user-name">{currentUser}</span>
+              <button class="btn-logout" on:click={logout} type="button" title="Cambiar nombre">✕</button>
+            </div>
+          {/if}
           
-       <!-- 🔴 Textarea con límite y contador - CORREGIDO -->
-<textarea 
-  bind:value={textInput} 
-  bind:this={textareaRef}
-  placeholder={editingPost ? "editando mensaje..." : "escribe algo aquí.. :D"}
-  rows="4"
-  class="retro-textarea {editingPost ? 'editing-mode' : ''}"
-  maxlength={MAX_CHARS}
-></textarea>
+          <textarea 
+            bind:value={textInput} 
+            bind:this={textareaRef}
+            placeholder={editingPost ? "editando mensaje..." : "escribe algo aquí.. :D"}
+            rows="4"
+            class="retro-textarea {editingPost ? 'editing-mode' : ''}"
+            maxlength={MAX_CHARS}
+          ></textarea>
           
-          <!-- 🔴 Contador de caracteres -->
           <div class="char-counter {textInput.length > MAX_CHARS * 0.9 ? 'warning' : ''}">
             {textInput.length}/{MAX_CHARS}
           </div>
@@ -459,31 +458,30 @@ function cancelEdit() {
                 📎
               </label>
               
-             {#if editingPost}
-  <button class="btn-retro-send btn-save" on:click={saveEdit} type="button">💾 Guardar</button>
-  <button class="btn-retro-cancel" on:click={cancelEdit} type="button">✕ Cancelar</button>
-{:else}
-  <button 
-    class="btn-retro-send" 
-    on:click={sendPost} 
-    disabled={(!textInput.trim() && !mediaFile) || isUploading}
-    type="button"
-  >
-    {#if isUploading}
-      {#if uploadProgress > 0}
-        {uploadProgress}%
-      {:else}
-        ⏳ Subiendo...
-      {/if}
-    {:else}
-      ENVIAR
-    {/if}
-  </button>
-{/if}
+              {#if editingPost}
+                <button class="btn-retro-send btn-save" on:click={saveEdit} type="button">💾 Guardar</button>
+                <button class="btn-retro-cancel" on:click={cancelEdit} type="button">✕ Cancelar</button>
+              {:else}
+                <button 
+                  class="btn-retro-send" 
+                  on:click={sendPost} 
+                  disabled={(!textInput.trim() && !mediaFile) || isUploading || !currentUser}
+                  type="button"
+                >
+                  {#if isUploading}
+                    {#if uploadProgress > 0}
+                      {uploadProgress}%
+                    {:else}
+                      ⏳ Subiendo...
+                    {/if}
+                  {:else}
+                    ENVIAR
+                  {/if}
+                </button>
+              {/if}
             </div>
           </div>
           
-          <!-- 🟡 Indicador de progreso de subida -->
           {#if isUploading && mediaFile}
             <div class="upload-progress">
               <div class="progress-bar" style="width: {uploadProgress || 30}%"></div>
@@ -491,24 +489,23 @@ function cancelEdit() {
             </div>
           {/if}
           
-         {#if mediaPreview && !editingPost}
-  <div class="mini-preview">
-    {#if mediaFile?.type?.startsWith('image')}
-      <img src={mediaPreview} alt="vista previa" />
-    {:else if mediaFile?.type?.startsWith('video')}
-      <video src={mediaPreview} muted>
-        <track kind="captions" />
-      </video>
-    {:else}
-      <span>📄 {mediaFile.name.slice(0, 20)}...</span>
-    {/if}
-    <button on:click={() => { mediaPreview=null; mediaFile=null; if(fileInputRef) fileInputRef.value=''; }} type="button">✕</button>
-  </div>
-{/if}
+          {#if mediaPreview && !editingPost}
+            <div class="mini-preview">
+              {#if mediaFile?.type?.startsWith('image')}
+                <img src={mediaPreview} alt="vista previa" />
+              {:else if mediaFile?.type?.startsWith('video')}
+                <video src={mediaPreview} muted>
+                  <track kind="captions" />
+                </video>
+              {:else}
+                <span>📄 {mediaFile.name.slice(0, 20)}...</span>
+              {/if}
+              <button on:click={() => { mediaPreview=null; mediaFile=null; if(fileInputRef) fileInputRef.value=''; }} type="button">✕</button>
+            </div>
+          {/if}
         </div>
       </div>
 
-      <!-- 🟡 Barra de búsqueda -->
       <div class="search-bar">
         <input 
           type="search" 
@@ -533,18 +530,18 @@ function cancelEdit() {
             {/if}
           </div>
         {:else}
-        {#each paginatedPosts as post (post.id)}
-  <div transition:fly={{ y: 10, duration: 400 }}>
- <Post 
-  {post} 
-  onLike={handleLike} 
-  onEdit={startEdit} 
-  onDelete={deletePost}
-  isEditing={editingPost?.id === post.id}
-  currentUser={currentUser}
-/>
-  </div>
-{/each}
+          {#each paginatedPosts as post (post.id)}
+            <div transition:fly={{ y: 10, duration: 400 }}>
+              <Post 
+                {post} 
+                onLike={handleLike} 
+                onEdit={startEdit} 
+                onDelete={deletePost}
+                isEditing={editingPost?.id === post.id}
+                currentUser={currentUser}
+              />
+            </div>
+          {/each}
           
           {#if totalPages > 1}
             <div class="pagination-controls">
@@ -596,60 +593,61 @@ function cancelEdit() {
     --panel-bg: rgba(255, 255, 255, 0.92);
     --text: #333;
   }
-/* 🟢 Modal de registro */
-.setup-overlay {
-  position: fixed;
-  top: 0; left: 0; width: 100%; height: 100%;
-  background: rgba(0,0,0,0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  backdrop-filter: blur(3px);
-}
 
-.setup-modal {
-  background: white;
-  padding: 24px;
-  border: 3px double var(--pink);
-  border-radius: 8px;
-  max-width: 320px;
-  text-align: center;
-  box-shadow: 8px 8px 0 rgba(212, 165, 165, 0.3);
-}
+  .setup-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    backdrop-filter: blur(3px);
+  }
 
-.setup-modal h2 {
-  font-family: 'VT323', monospace;
-  color: var(--pink);
-  margin-bottom: 12px;
-}
+  .setup-modal {
+    background: white;
+    padding: 24px;
+    border: 3px double var(--pink);
+    border-radius: 8px;
+    max-width: 320px;
+    text-align: center;
+    box-shadow: 8px 8px 0 rgba(212, 165, 165, 0.3);
+  }
 
-.setup-modal p {
-  font-family: 'Nunito', sans-serif;
-  margin-bottom: 16px;
-  color: #555;
-}
+  .setup-modal h2 {
+    font-family: 'VT323', monospace;
+    color: var(--pink);
+    margin-bottom: 12px;
+  }
 
-.name-input-group {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-bottom: 12px;
-}
+  .setup-modal p {
+    font-family: 'Nunito', sans-serif;
+    margin-bottom: 16px;
+    color: #555;
+  }
 
-.setup-input {
-  text-align: center;
-  font-size: 1.3rem;
-  padding: 8px;
-  border: 2px solid var(--blue);
-  border-radius: 4px;
-}
+  .name-input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
 
-.setup-hint {
-  font-size: 0.85rem;
-  color: #888;
-  font-style: italic;
-}
+  .setup-input {
+    text-align: center;
+    font-size: 1.3rem;
+    padding: 8px;
+    border: 2px solid var(--blue);
+    border-radius: 4px;
+  }
+
+  .setup-hint {
+    font-size: 0.85rem;
+    color: #888;
+    font-style: italic;
+  }
+
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   .bg-image {
@@ -763,20 +761,46 @@ function cancelEdit() {
     padding: 12px;
   }
 
-  .retro-input-name {
-    width: 100%;
-    border: none;
-    border-bottom: 1px dashed var(--blue);
-    background: transparent;
-    font-family: 'VT323', monospace;
-    font-size: 1.2rem;
-    color: var(--blue);
-    padding: 4px 0;
-    margin-bottom: 8px;
-    outline: none;
+  /* 🟢 NUEVO: Display de usuario actual */
+  .current-user-display {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(157, 181, 199, 0.2);
+    padding: 8px 12px;
+    border-radius: 4px;
+    margin-bottom: 12px;
+    border: 1px dashed var(--blue);
   }
 
-  .retro-input-name::placeholder { color: #aaa; }
+  .user-label {
+    font-family: 'VT323', monospace;
+    color: var(--green);
+    font-size: 1rem;
+  }
+
+  .user-name {
+    font-family: 'Nunito', sans-serif;
+    font-weight: 600;
+    color: var(--text);
+    flex: 1;
+  }
+
+  .btn-logout {
+    background: none;
+    border: none;
+    color: #999;
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: all 0.2s;
+  }
+
+  .btn-logout:hover {
+    background: rgba(212, 165, 165, 0.2);
+    color: var(--pink);
+  }
 
   .retro-textarea {
     width: 100%;
@@ -796,7 +820,6 @@ function cancelEdit() {
   .retro-textarea:disabled { background: #f5f5f5; opacity: 0.7; }
   .retro-textarea::placeholder { color: #999; }
 
-  /* 🔴 Contador de caracteres */
   .char-counter {
     text-align: right;
     font-family: 'VT323', monospace;
@@ -855,7 +878,6 @@ function cancelEdit() {
   }
   .btn-retro-cancel:hover { background: #bbb; }
 
-  /* 🟡 Indicador de progreso */
   .upload-progress {
     margin-top: 10px;
     background: #eee;
@@ -904,7 +926,6 @@ function cancelEdit() {
     line-height: 1;
   }
 
-  /* 🟡 Barra de búsqueda */
   .search-bar {
     position: relative;
     margin: 20px 0;
@@ -920,29 +941,21 @@ function cancelEdit() {
     outline: none;
     transition: border-color 0.2s;
   }
-  /* 🔧 Fix: texto visible en inputs */
-.search-input,
-input[type="text"],
-input[type="search"],
-textarea {
-  color: #1a1a1a !important;
-  -webkit-text-fill-color: #1a1a1a !important; /* Para Safari */
-}
+  .search-input,
+  input[type="text"],
+  input[type="search"],
+  textarea {
+    color: #1a1a1a !important;
+    -webkit-text-fill-color: #1a1a1a !important;
+  }
 
-.search-input::placeholder,
-input::placeholder,
-textarea::placeholder {
-  color: #666 !important;
-  opacity: 1 !important;
-}
+  .search-input::placeholder,
+  input::placeholder,
+  textarea::placeholder {
+    color: #666 !important;
+    opacity: 1 !important;
+  }
 
-/* Asegurar que el input de nombre también tenga contraste */
-.retro-input-name {
-  color: #333 !important; /* Cambié var(--blue) por gris oscuro */
-}
-.retro-input-name::placeholder {
-  color: #999 !important;
-}
   .search-input:focus { border-color: var(--pink); }
   .search-clear {
     position: absolute;
@@ -968,7 +981,6 @@ textarea::placeholder {
     padding: 20px;
   }
 
-  /* Mecho Mascot */
   .mascot-container {
     text-align: center;
     margin: 20px auto 30px;
@@ -1004,93 +1016,97 @@ textarea::placeholder {
     transition: all 0.3s ease;
     pointer-events: none;
     border: 2px solid var(--pink);
+    text-align: center;
   }
   @keyframes float {
     0%, 100% { transform: translateY(0); }
     50% { transform: translateY(-10px); }
   }
 
- /* === PAGINACIÓN === */
-.pagination-controls {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 12px;
-  margin-top: 24px;
-  padding-top: 16px;
-  border-top: 1px dashed var(--blue);
-}
+  .pagination-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px dashed var(--blue);
+  }
 
-.page-btn {
-  font-family: 'VT323', monospace;
-  font-size: 1.1rem;
-  padding: 6px 16px;
-  background: white; /* CAMBIADO: blanco en vez de transparente */
-  border: 2px solid var(--pink);
-  border-radius: 0;
-  color: black; /* CAMBIADO: negro */
-  cursor: pointer;
-  transition: all 0.2s;
-  font-weight: bold; /* CAMBIADO: negrita */
-}
+  .page-btn {
+    font-family: 'VT323', monospace;
+    font-size: 1.1rem;
+    padding: 6px 16px;
+    background: white;
+    border: 2px solid var(--pink);
+    border-radius: 0;
+    color: black;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: bold;
+  }
 
-.page-btn:hover:not(:disabled) { 
-  background: var(--pink); 
-  color: white; 
-}
+  .page-btn:hover:not(:disabled) { 
+    background: var(--pink); 
+    color: white; 
+  }
 
-.page-btn:disabled { 
-  opacity: 0.4; 
-  cursor: not-allowed; 
-}
+  .page-btn:disabled { 
+    opacity: 0.4; 
+    cursor: not-allowed; 
+  }
 
-.page-numbers { 
-  display: flex; 
-  gap: 6px; 
-}
+  .page-numbers { 
+    display: flex; 
+    gap: 6px; 
+  }
 
-.page-number {
-  font-family: 'VT323', monospace;
-  font-size: 1rem;
-  width: 28px;
-  height: 28px;
-  border: 1px solid var(--blue);
-  background: white; /* CAMBIADO: blanco */
-  color: black; /* CAMBIADO: negro */
-  cursor: pointer;
-  transition: all 0.2s;
-  font-weight: bold; /* CAMBIADO: negrita */
-}
+  .page-number {
+    font-family: 'VT323', monospace;
+    font-size: 1rem;
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--blue);
+    background: white;
+    color: black;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: bold;
+  }
 
-.page-number:hover {
-  background: var(--blue);
-  color: white;
-}
+  .page-number:hover {
+    background: var(--blue);
+    color: white;
+  }
 
-.page-number.active {
-  background: var(--green);
-  color: white;
-  border-color: var(--green);
-}
+  .page-number.active {
+    background: var(--green);
+    color: white;
+    border-color: var(--green);
+  }
+
+  .retro-textarea.editing-mode {
+    border-color: var(--pink);
+    background: #fffef0;
+    box-shadow: 0 0 0 3px rgba(212, 165, 165, 0.2);
+  }
+
+  .btn-save {
+    background: var(--green) !important;
+    border-color: #5a6a4c !important;
+  }
+  .btn-save:hover {
+    background: #6a7a5c !important;
+  }
+
   @media (max-width: 600px) {
     .logo { font-size: 2.5rem; }
     .main-panel { padding: 20px; }
     .input-footer { flex-direction: column; gap: 10px; align-items: stretch; }
     .actions { justify-content: space-between; }
     .mascot { width: 60px; }
+    .current-user-display {
+      flex-wrap: wrap;
+    }
   }
-  /* 🟡 Modo edición */
-.retro-textarea.editing-mode {
-  border-color: var(--pink);
-  background: #fffef0;
-  box-shadow: 0 0 0 3px rgba(212, 165, 165, 0.2);
-}
-
-.btn-save {
-  background: var(--green) !important;
-  border-color: #5a6a4c !important;
-}
-.btn-save:hover {
-  background: #6a7a5c !important;
-}
 </style>
